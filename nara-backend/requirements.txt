@@ -1,0 +1,24 @@
+# Core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic[email]==2.5.3
+pydantic-settings==2.1.0
+email-validator>=2.0.0
+
+# Supabase (2.9+ evita TypeError proxy com gotrue/httpx)
+supabase>=2.9.0,<3
+
+# OpenAI (RAG e relatório)
+openai>=1.8.0
+tiktoken>=0.5.2
+
+# Email
+resend>=0.7.0
+
+# Utilities
+python-dotenv>=1.0.0
+httpx>=0.26.0
+
+# Testing
+pytest>=7.4.4
+pytest-asyncio>=0.23.3
