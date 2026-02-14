@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Button } from "../components/ui/button";
+import { buttonVariants } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
+import { cn } from "../lib/utils";
 
 export default function Home() {
   return (
@@ -17,9 +18,9 @@ export default function Home() {
             Descubra seu perfil nas 12 Áreas da Vida e receba um relatório personalizado com
             base na metodologia do Círculo Narrativo.
           </p>
-          <Button asChild className="w-full">
-            <Link to="/diagnostico/iniciar">Iniciar diagnóstico</Link>
-          </Button>
+          <Link to="/diagnostico/iniciar" className={cn(buttonVariants(), "w-full")}>
+            Iniciar diagnóstico
+          </Link>
         </CardContent>
       </Card>
     </div>

@@ -13,9 +13,9 @@ import { getOrCreateSessionId, setStoredDiagnosticId } from "../lib/session";
 const schema = z.object({
   email: z.string().email("Informe um e-mail válido"),
   full_name: z.string().min(0).optional(),
-  consent_privacy: z.literal(true, {
-    errorMap: () => ({ message: "É necessário aceitar a política de privacidade" }),
-  }),
+  consent_privacy: z
+    .boolean()
+    .refine((v) => v === true, { message: "É necessário aceitar a política de privacidade" }),
   consent_marketing: z.boolean().optional(),
 });
 
@@ -39,7 +39,7 @@ export default function StartDiagnostic() {
     watch,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { consent_privacy: false, consent_marketing: false },
+    defaultValues: { email: "", consent_privacy: false, consent_marketing: false },
   });
 
   const email = watch("email");

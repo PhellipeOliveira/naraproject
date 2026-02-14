@@ -45,13 +45,6 @@ interface DiagnosticState {
   reset: () => void;
 }
 
-const initialProgress: ProgressInfo = {
-  overall: 0,
-  questions: 0,
-  words: 0,
-  coverage: 0,
-};
-
 export const useDiagnosticStore = create<DiagnosticState>((set) => ({
   diagnosticId: null,
   resultToken: null,

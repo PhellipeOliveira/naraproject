@@ -5,8 +5,9 @@ import { submitFeedback } from "../api/feedback";
 import { joinWaitlist } from "../api/waitlist";
 import type { DiagnosticResultResponse } from "../types";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { cn } from "../lib/utils";
 
 export default function Result() {
   const { token } = useParams<{ token: string }>();
@@ -44,9 +45,9 @@ export default function Result() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <p className="text-destructive">{error ?? "Resultado não encontrado."}</p>
-        <Button asChild variant="outline" className="mt-4">
-          <Link to="/">Voltar ao início</Link>
-        </Button>
+        <Link to="/" className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>
+          Voltar ao início
+        </Link>
       </div>
     );
   }
@@ -175,9 +176,9 @@ export default function Result() {
       )}
 
       <div className="flex justify-center gap-2">
-        <Button asChild variant="outline">
-          <Link to="/">Fazer novo diagnóstico</Link>
-        </Button>
+        <Link to="/" className={buttonVariants({ variant: "outline" })}>
+          Fazer novo diagnóstico
+        </Link>
       </div>
     </div>
   );

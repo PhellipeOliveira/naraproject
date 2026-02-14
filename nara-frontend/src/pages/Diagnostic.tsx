@@ -5,7 +5,6 @@ import {
   getNextQuestions,
   getCurrentState,
   finishDiagnostic,
-  checkEligibility,
 } from "../api/diagnostic";
 import { useDiagnosticStore } from "../stores";
 import { ProgressBar } from "../components/diagnostic/ProgressBar";
@@ -26,15 +25,11 @@ export default function Diagnostic() {
   const {
     diagnosticId,
     resultToken,
-    phase,
     questions,
     currentQuestionIndex,
-    totalAnswers,
     canFinish,
     progress,
-    setStarted,
     setQuestions,
-    setCurrentIndex,
     setProgress,
     goNext,
     goPrev,
