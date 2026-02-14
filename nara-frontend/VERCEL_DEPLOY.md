@@ -44,7 +44,36 @@ Depois clique em **Deploy**.
 ## 3. Depois do deploy
 
 - A Vercel vai mostrar a URL do site (ex.: `https://naraproject.vercel.app`).
-- Para alterar a URL do backend depois: **Project** → **Settings** → **Environment Variables** → edite ou crie `VITE_API_URL` → **Redeploy** (aba Deployments) para aplicar.
+
+---
+
+## 4. Ajustar no dashboard (Framework Preset + VITE_API_URL)
+
+Se o deploy já foi feito mas o **Framework Preset** ficou em "Other" ou você ainda não configurou a **VITE_API_URL**, faça no dashboard:
+
+### 4.1 Definir Framework Preset como Vite
+
+1. No projeto **naraproject**, clique em **Settings** (menu lateral ou ícone de engrenagem).
+2. No menu lateral de Settings, abra **Build & Development** (ou **General**, dependendo do layout).
+3. Em **Framework Preset**, troque de "Other" para **Vite**.
+4. Confira também:
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+5. Clique em **Save** se aparecer o botão.
+
+### 4.2 Incluir a variável VITE_API_URL
+
+1. Ainda em **Settings**, clique em **Environment Variables** (no menu lateral).
+2. Em **Key**, digite: **`VITE_API_URL`**.
+3. Em **Value**, coloque a URL do seu backend em produção, **sem barra no final**.  
+   Exemplos:
+   - Backend no Render: `https://nara-backend-xxxx.onrender.com`
+   - Backend no Railway: `https://nara-backend-production.up.railway.app`
+4. Marque o ambiente (**Production**, e opcionalmente Preview/Development se quiser).
+5. Clique em **Save**.
+6. Para a variável valer no site já publicado: vá em **Deployments** → no último deploy → **⋯** (três pontos) → **Redeploy**. Ou faça um novo commit e a Vercel fará um novo deploy automático.
+
+**Se o backend ainda não está no ar:** você pode criar a variável com um valor placeholder (ex.: `https://seu-backend.onrender.com`) e trocar depois; ou deixar sem valor e adicionar quando subir o backend.
 
 ---
 
