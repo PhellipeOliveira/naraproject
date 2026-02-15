@@ -1,5 +1,6 @@
 /**
- * Definição das 12 áreas (Círculo Narrativo) - expandir na Fase 3/4.
+ * Definição das 12 Áreas Estruturantes (Círculo Narrativo).
+ * Ordem e nomes alinhados a documentos/01_FUNDAMENTOS.md § 2.1.
  */
 export const LIFE_AREAS = [
   'Saúde Física',

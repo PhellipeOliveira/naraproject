@@ -65,7 +65,7 @@ No Render, cada variável tem **dois campos**: **Key** (nome) e **Value** (valor
 | `RESEND_API_KEY` | Chave do Resend |
 | `EMAIL_FROM` | Email de envio (ex.: `diagnostic.nara@phellipeoliveira.org`) |
 | `FRONTEND_URL` | URL do frontend na Vercel (ex.: `https://naraproject-beige.vercel.app`) **sem** barra no final |
-| `CORS_ORIGINS` | JSON com a URL do frontend, ex.: `["https://naraproject-beige.vercel.app"]` |
+| `CORS_ORIGINS` | **Formato exato:** JSON array com a URL do frontend, **sem** parênteses, **sem** barra no final. Ex.: `["https://naraproject-beige.vercel.app"]` (use colchetes `[ ]` e aspas na URL). No Render, no campo Value coloque exatamente isso. |
 
 **Opcionais** (Key → Value). Se não adicionar, o código usa o default:
 
@@ -83,6 +83,24 @@ No Render, cada variável tem **dois campos**: **Key** (nome) e **Value** (valor
 Ou seja: para **ENV** e **DEBUG** você adiciona **duas linhas** — uma com Key `ENV` e Value `production`, outra com Key `DEBUG` e Value `false`. Nunca coloque `ENV=production` em um único campo; o Render não aceita esse formato.
 
 **Atenção:** No campo **Value** coloque **sempre o valor real** (número, URL, texto). **Não** coloque o caminho do arquivo (ex.: `nara-backend/.env.example`). Se você usou "Add from .env", confira que as variáveis numéricas têm número no Value (ex.: `40`, `3500`, `10`, `0.5`), não o path do arquivo — senão o app falha na subida com erro de validação do Pydantic.
+
+**Quais variáveis precisam de valor real no Render e quais não**
+
+No Render **não** use o texto `nara-backend/.env.example` como valor de nenhuma variável — isso é só o caminho do arquivo. O backend precisa de valores reais ou numéricos.
+
+| No Render | Precisa de valor real? | Motivo |
+|-----------|------------------------|--------|
+| **SUPABASE_URL** | ✅ Sim | Conexão com o banco; URL do projeto Supabase. |
+| **SUPABASE_SERVICE_KEY** | ✅ Sim | Autenticação no Supabase; sem isso o app não sobe. |
+| **OPENAI_API_KEY** | ✅ Sim | Geração de perguntas e relatório; sem isso o diagnóstico falha. |
+| **RESEND_API_KEY** | ✅ Sim | Envio de e-mails; sem isso o envio falha. |
+| **EMAIL_FROM** | ✅ Sim | Remetente dos e-mails (ex.: `diagnostic.nara@seudominio.org`). |
+| **FRONTEND_URL** | ✅ Sim | URL do front na Vercel (ex.: `https://naraproject-beige.vercel.app`), sem barra no final. |
+| **CORS_ORIGINS** | ✅ Sim | JSON array com a URL do front (ex.: `["https://naraproject-beige.vercel.app"]`). |
+| **APP_NAME**, **ENV**, **DEBUG** | ⚠️ Opcional | O código tem default; pode deixar como está ou ajustar. |
+| **MIN_QUESTIONS_TO_FINISH**, **MIN_WORDS_TO_FINISH**, **MIN_AREAS_COVERED**, **RAG_TOP_K**, **RAG_SIMILARITY_THRESHOLD** | ⚠️ Opcional | O código tem default; se definir, use **números** (ex.: `40`, `3500`), nunca `nara-backend/.env.example`. |
+
+Resumo: **todas as variáveis que o backend usa para conectar a serviços externos (Supabase, OpenAI, Resend) e para CORS/FRONTEND_URL precisam de valor real no Render.** Nenhuma pode ficar com o texto `nara-backend/.env.example`.
 
 Use como referência o arquivo **`nara-backend/.env.example`** (nomes das variáveis = Key; valores reais você preenche com os segredos que já usa em desenvolvimento).
 
@@ -143,3 +161,22 @@ Se o deploy falhar com **Invalid URL** ao criar o cliente Supabase, a variável 
 4. Se existir **SUPABASE_SERVICE_KEY**, confira também que o valor é a **service_role** key (em Settings → API → "Project API keys" → `service_role`), sem espaços ou quebras de linha.
 
 Depois salve e faça **Manual Deploy** novamente.
+
+---
+
+## Erro no front: "Não foi possível iniciar o diagnóstico" (CORS ou backend)
+
+Se o front na Vercel mostra essa mensagem ao clicar em "Iniciar diagnóstico":
+
+1. **Formato de CORS_ORIGINS no Render**  
+   O valor deve ser um **JSON array**, não texto com parênteses.  
+   - **Errado:** `(https://naraproject-beige.vercel.app)`  
+   - **Certo:** `["https://naraproject-beige.vercel.app"]`  
+   No Render → Environment → **CORS_ORIGINS** → Value = `["https://naraproject-beige.vercel.app"]` (com colchetes e aspas). Salve e faça **Manual Deploy** do backend.
+
+2. **Ver o erro real no navegador**  
+   Abra a página do diagnóstico → F12 (DevTools) → aba **Console**. Tente iniciar de novo. Se aparecer erro de **CORS** (ex.: "blocked by CORS policy"), o backend não está aceitando a origem do front; confira o passo 1.  
+   Na aba **Network**, filtre por "Fetch/XHR", tente iniciar e clique na requisição para `diagnostic/start`. Veja o **Status** (ex.: 403 CORS, 500, 422) e o **Response**; isso indica se o problema é CORS ou resposta de erro do backend.
+
+3. **Backend acordado (plano Free)**  
+   No plano gratuito do Render o serviço “dorme”. Abra primeiro **https://nara-backend-11dg.onrender.com/health** em outra aba, espere responder, e depois tente o diagnóstico de novo.

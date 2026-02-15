@@ -2,8 +2,9 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.config import settings
@@ -43,7 +44,32 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+def _cors_headers(request: Request) -> dict:
+    """Headers CORS para respostas de erro (evita bloqueio no browser)."""
+    origin = request.headers.get("origin", "")
+    allow = origin if origin in origins else (origins[0] if origins else "*")
+    return {
+        "Access-Control-Allow-Origin": allow,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Garante que respostas de erro incluam headers CORS."""
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Erro interno do servidor. Tente novamente."},
+        headers=_cors_headers(request),
+    )
+
 
 # Rotas da API
 app.include_router(api_router, prefix="/api/v1")

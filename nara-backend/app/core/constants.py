@@ -1,9 +1,10 @@
 """
 Constantes e dados estáticos do sistema NARA.
-Baseline conforme documento IDENTIDADE_NARA (Cap. 7) — Metodologia de Transformação Narrativa.
+Conforme documento 01_FUNDAMENTOS — Metodologia de Transformação Narrativa,
+12 Áreas Estruturantes do Círculo Narrativo, Motores Motivacionais e Fases da Jornada.
 """
 
-# As 12 áreas estruturantes (Círculo Narrativo)
+# As 12 áreas estruturantes (Círculo Narrativo) — 01_FUNDAMENTOS § 2.1
 AREAS = [
     "Saúde Física",
     "Saúde Mental",
@@ -19,7 +20,7 @@ AREAS = [
     "Lazer",
 ]
 
-# Perguntas baseline (15) — M1 Estado de Crise — IDENTIDADE_NARA Cap. 7
+# Perguntas baseline (15) — M1 Estado de Crise — 01_FUNDAMENTOS § 9
 BASELINE_QUESTIONS = [
     {
         "id": 1,
@@ -121,7 +122,7 @@ BASELINE_QUESTIONS = [
     },
 ]
 
-# Motores motivacionais
+# Motores motivacionais — 01_FUNDAMENTOS § 2.2
 MOTORES = {
     "Necessidade": "Dor interna que precisa de alívio",
     "Valor": "Integridade e coerência com princípios",
@@ -129,7 +130,7 @@ MOTORES = {
     "Propósito": "Impacto significativo no mundo",
 }
 
-# Fases da jornada
+# Fases da jornada — 01_FUNDAMENTOS § 2.3 (Germinar → Realizar)
 FASES_JORNADA = [
     "Germinar",
     "Enraizar",
@@ -139,7 +140,7 @@ FASES_JORNADA = [
     "Realizar",
 ]
 
-# Tipos de crise
+# Tipos de crise (Clusters Operacionais M1) — 01_FUNDAMENTOS § 2.6
 TIPOS_CRISE = [
     "Identidade",
     "Sentido",

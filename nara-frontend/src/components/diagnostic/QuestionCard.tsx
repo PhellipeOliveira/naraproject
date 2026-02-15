@@ -47,10 +47,12 @@ export function QuestionCard({
                     type="button"
                     variant={selected ? "default" : "outline"}
                     size="sm"
-                    className="w-full min-w-0"
+                    className="min-h-10 w-full min-w-0 py-2"
                     onClick={() => onScaleChange(value)}
                   >
-                    <span className="truncate">{label}</span>
+                    <span className="break-words text-center text-xs leading-tight sm:text-sm">
+                      {label}
+                    </span>
                   </Button>
                 );
               })}

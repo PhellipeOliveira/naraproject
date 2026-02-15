@@ -11,27 +11,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.config import settings
+from app.core.constants import AREAS
 from app.database import supabase
 from app.rag.generator import generate_adaptive_questions, generate_final_report
 from app.rag.retriever import retrieve_for_question_generation, retrieve_for_report_generation
 
 logger = logging.getLogger(__name__)
-
-# Áreas na mesma ordem que a tabela areas (id 1..12) para mapeamento
-AREAS = [
-    "Saúde Física",
-    "Saúde Mental",
-    "Saúde Espiritual",
-    "Vida Pessoal",
-    "Vida Amorosa",
-    "Vida Familiar",
-    "Vida Social",
-    "Vida Profissional",
-    "Finanças",
-    "Educação",
-    "Inovação",
-    "Lazer",
-]
 
 
 def _area_name_to_id(area_name: str) -> int:
@@ -74,7 +59,7 @@ class NaraDiagnosticPipeline:
     5. finish() -> Gera relatório final via RAG+LLM
     """
 
-    AREAS = AREAS
+    AREAS = AREAS  # 12 Áreas Estruturantes (01_FUNDAMENTOS); mesma ordem que tabela areas
 
     def __init__(self) -> None:
         self.baseline_questions = self._load_baseline_questions()
