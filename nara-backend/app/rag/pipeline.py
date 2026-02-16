@@ -93,6 +93,7 @@ class NaraDiagnosticPipeline:
             "status": "in_progress",
             "current_phase": 1,
             "current_question": 0,
+            "current_phase_questions_count": 15,
             "total_answers": 0,
             "total_words": 0,
             "areas_covered": [],  # DB pode ser SMALLINT[]; Supabase aceita lista vazia
@@ -212,7 +213,8 @@ class NaraDiagnosticPipeline:
         }).eq("id", diagnostic_id).execute()
 
         eligibility = self._check_eligibility(new_total, new_words, areas_for_eligibility)
-        phase_complete = new_current_question >= settings.QUESTIONS_PER_PHASE
+        phase_questions_count = diagnostic.get("current_phase_questions_count") or settings.QUESTIONS_PER_PHASE
+        phase_complete = new_current_question >= phase_questions_count
 
         logger.info(
             "Answer %s for %s. Total: %s, Phase complete: %s",
@@ -290,6 +292,7 @@ class NaraDiagnosticPipeline:
         supabase.table("diagnostics").update({
             "current_phase": next_phase,
             "current_question": 0,
+            "current_phase_questions_count": len(questions),
         }).eq("id", diagnostic_id).execute()
 
         logger.info("Generated %s questions for phase %s", len(questions), next_phase)

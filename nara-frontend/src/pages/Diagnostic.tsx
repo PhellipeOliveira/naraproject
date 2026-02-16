@@ -18,6 +18,7 @@ export default function Diagnostic() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [generatingNextPhase, setGeneratingNextPhase] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [localAnswerText, setLocalAnswerText] = useState("");
   const [localAnswerScale, setLocalAnswerScale] = useState<number | null>(null);
@@ -27,6 +28,7 @@ export default function Diagnostic() {
     resultToken,
     questions,
     currentQuestionIndex,
+    totalAnswers,
     canFinish,
     progress,
     setQuestions,
@@ -126,12 +128,27 @@ export default function Diagnostic() {
       setLocalAnswerScale(null);
 
       if (res.phase_complete && res.status !== "eligible") {
-        const next = await getNextQuestions(id);
-        useDiagnosticStore.setState({
-          phase: next.phase,
-          questions: next.questions,
-          currentQuestionIndex: 0,
-        });
+        setGeneratingNextPhase(true);
+        setSubmitError(null);
+        try {
+          const next = await getNextQuestions(id);
+          useDiagnosticStore.setState({
+            phase: next.phase,
+            questions: next.questions,
+            currentQuestionIndex: 0,
+          });
+        } catch (e) {
+          console.error(e);
+          const msg =
+            e && typeof e === "object" && "response" in e
+              ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
+              : null;
+          setSubmitError(
+            typeof msg === "string" ? msg : "Erro ao carregar próximas perguntas. Tente novamente."
+          );
+        } finally {
+          setGeneratingNextPhase(false);
+        }
       } else {
         goNext();
       }
@@ -171,6 +188,18 @@ export default function Diagnostic() {
     );
   }
 
+  if (generatingNextPhase) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-6" />
+        <h2 className="text-lg font-semibold mb-2">Gerando perguntas personalizadas...</h2>
+        <p className="text-muted-foreground text-sm max-w-sm">
+          Estamos processando suas respostas para preparar as próximas perguntas. Isso pode levar alguns segundos.
+        </p>
+      </div>
+    );
+  }
+
   if (!currentQuestion && questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -201,6 +230,7 @@ export default function Diagnostic() {
       <ProgressBar
         current={currentQuestionIndex}
         total={questions.length}
+        totalAnswers={totalAnswers}
         overallPercent={progress?.overall}
       />
 
