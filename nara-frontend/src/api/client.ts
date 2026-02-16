@@ -8,7 +8,12 @@ const raw =
   import.meta.env.VITE_API_URL ??
   (import.meta.env.DEV ? "" : "http://localhost:8000");
 const origin = typeof raw === "string" ? raw.replace(/\/+$/, "") : "";
-const baseURL = origin ? `${origin}/api/v1` : "/api/v1";
+// Evita duplicar /api/v1 quando VITE_API_URL já inclui (ex.: http://localhost:8000/api/v1)
+const baseURL = origin
+  ? origin.endsWith("/api/v1")
+    ? origin
+    : `${origin}/api/v1`
+  : "/api/v1";
 
 export const apiClient = axios.create({
   baseURL,
