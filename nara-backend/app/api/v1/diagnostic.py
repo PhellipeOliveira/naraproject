@@ -1,4 +1,5 @@
 """Endpoints de diagnóstico."""
+import logging
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.diagnostic import (
@@ -15,6 +16,7 @@ from app.services.diagnostic_service import DiagnosticService
 
 router = APIRouter()
 service = DiagnosticService()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/start", response_model=DiagnosticStartResponse)
@@ -69,16 +71,28 @@ async def submit_answer(diagnostic_id: str, request: AnswerSubmitRequest):
     Submete uma resposta para uma pergunta.
     Atualiza contadores e scores parciais; retorna progresso e elegibilidade.
     """
-    result = await service.submit_answer(
-        diagnostic_id=diagnostic_id,
-        question_id=request.question_id,
-        question_text=request.question_text,
-        question_area=request.question_area,
-        answer_text=request.answer_text,
-        answer_scale=request.answer_scale,
-        response_time_seconds=request.response_time_seconds,
-    )
-    return AnswerSubmitResponse(**result)
+    try:
+        result = await service.submit_answer(
+            diagnostic_id=diagnostic_id,
+            question_id=request.question_id,
+            question_text=request.question_text,
+            question_area=request.question_area,
+            answer_text=request.answer_text,
+            answer_scale=request.answer_scale,
+            response_time_seconds=request.response_time_seconds,
+        )
+        return AnswerSubmitResponse(**result)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.exception("submit_answer failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno do servidor. Tente novamente.",
+        )
 
 
 @router.get("/{diagnostic_id}/next-questions", response_model=NextQuestionsResponse)

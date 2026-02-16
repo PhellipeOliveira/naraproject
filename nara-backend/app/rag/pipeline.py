@@ -4,6 +4,7 @@ Orquestra todas as etapas do fluxo de diagnóstico.
 """
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from dataclasses import dataclass
@@ -195,7 +196,11 @@ class NaraDiagnosticPipeline:
             areas_covered_names = list(areas_covered_names) + [question_area]
 
         scores_by_area = await self._calculate_area_scores(diagnostic_id)
-        areas_covered_ids = [_area_name_to_id(a) for a in areas_covered_names if _area_name_to_id(a)]
+        # Só persiste IDs das 12 áreas estruturantes; "Geral" não está em AREAS
+        areas_covered_ids = [
+            AREAS.index(a) + 1 for a in areas_covered_names if a in AREAS
+        ]
+        areas_for_eligibility = [a for a in areas_covered_names if a in AREAS]
 
         supabase.table("diagnostics").update({
             "total_answers": new_total,
@@ -206,7 +211,7 @@ class NaraDiagnosticPipeline:
             "last_activity_at": datetime.utcnow().isoformat(),
         }).eq("id", diagnostic_id).execute()
 
-        eligibility = self._check_eligibility(new_total, new_words, areas_covered_names)
+        eligibility = self._check_eligibility(new_total, new_words, areas_for_eligibility)
         phase_complete = new_current_question >= settings.QUESTIONS_PER_PHASE
 
         logger.info(
@@ -229,7 +234,7 @@ class NaraDiagnosticPipeline:
             },
             "total_answers": new_total,
             "total_words": new_words,
-            "areas_covered": len(areas_covered_names),
+            "areas_covered": len(areas_for_eligibility),
         }
 
     async def generate_next_phase(self, diagnostic_id: str) -> Dict[str, Any]:
@@ -337,9 +342,12 @@ class NaraDiagnosticPipeline:
             100, (total_answers / settings.MIN_QUESTIONS_TO_FINISH) * 100
         )
         words_progress = min(100, (total_words / settings.MIN_WORDS_TO_FINISH) * 100)
-        coverage_progress = (len(set(areas_covered)) / settings.MIN_AREAS_COVERED) * 100
-        overall_progress = (
-            questions_progress * 0.4 + words_progress * 0.3 + coverage_progress * 0.3
+        coverage_progress = min(
+            100, (len(set(areas_covered)) / settings.MIN_AREAS_COVERED) * 100
+        )
+        overall_progress = min(
+            100,
+            questions_progress * 0.4 + words_progress * 0.3 + coverage_progress * 0.3,
         )
 
         missing_areas = [a for a in self.AREAS if a not in areas_covered]
@@ -356,6 +364,20 @@ class NaraDiagnosticPipeline:
             overall_progress=overall_progress,
         )
 
+    def _safe_answer_value(self, answer: Dict[str, Any]) -> Dict[str, Any]:
+        """Retorna answer_value como dict; suporta JSON string vinda do DB."""
+        raw = answer.get("answer_value")
+        if raw is None:
+            return {}
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            try:
+                return json.loads(raw) if raw else {}
+            except (ValueError, TypeError):
+                return {}
+        return {}
+
     async def _calculate_area_scores(self, diagnostic_id: str) -> Dict[str, Any]:
         """Calcula scores por área baseado nas respostas."""
         answers_result = (
@@ -368,11 +390,12 @@ class NaraDiagnosticPipeline:
             area_answers = [a for a in answers if a.get("question_area") == area]
             if not area_answers:
                 continue
-            scales = [
-                a["answer_value"]["scale"]
-                for a in area_answers
-                if (a.get("answer_value") or {}).get("scale") is not None
-            ]
+            scales = []
+            for a in area_answers:
+                val = self._safe_answer_value(a)
+                scale = val.get("scale")
+                if scale is not None and isinstance(scale, (int, float)):
+                    scales.append(float(scale))
             avg_scale = sum(scales) / len(scales) if scales else None
             score = (avg_scale * 2) if avg_scale is not None else 5.0
 
@@ -380,7 +403,7 @@ class NaraDiagnosticPipeline:
                 "score": round(score, 1),
                 "questions_answered": len(area_answers),
                 "has_text_responses": any(
-                    (a.get("answer_value") or {}).get("text") for a in area_answers
+                    bool(self._safe_answer_value(a).get("text")) for a in area_answers
                 ),
             }
 
