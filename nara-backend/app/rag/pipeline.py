@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 def _area_name_to_id(area_name: str) -> int:
-    """Mapeia nome da área para id (1-based) conforme tabela areas."""
-    try:
-        return AREAS.index(area_name) + 1
-    except ValueError:
+    """Mapeia nome da área para id (1-based) conforme tabela areas.
+    Retorna 0 para áreas não mapeadas (ex.: 'Geral'), que são ignoradas no areas_covered."""
+    if not area_name or area_name not in AREAS:
         return 0
+    return AREAS.index(area_name) + 1
 
 
 def _area_ids_to_names(area_ids: List[int]) -> List[str]:
