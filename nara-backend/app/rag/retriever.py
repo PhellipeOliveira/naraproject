@@ -16,6 +16,7 @@ async def retrieve_relevant_chunks(
     filter_motor: Optional[list[str]] = None,
     filter_crise: Optional[list[str]] = None,
     similarity_threshold: float | None = None,
+    filter_chunk_strategy: Optional[str] = "semantic",
 ) -> list[dict[str, Any]]:
     """
     Busca chunks relevantes para uma query usando similaridade semântica.
@@ -27,6 +28,8 @@ async def retrieve_relevant_chunks(
         filter_motor: Filtrar por motor motivacional
         filter_crise: Filtrar por tipo de crise
         similarity_threshold: Score mínimo de similaridade
+        filter_chunk_strategy: Filtrar por metadata.chunk_strategy (ex: "semantic").
+            Default "semantic" para respostas mais coerentes. None = não filtra (retrocompatível).
 
     Returns:
         Lista de chunks com similarity score
@@ -47,11 +50,15 @@ async def retrieve_relevant_chunks(
         payload["filter_motor"] = filter_motor
     if filter_crise is not None:
         payload["filter_crise"] = filter_crise
+    if filter_chunk_strategy is not None:
+        payload["filter_chunk_strategy"] = filter_chunk_strategy
 
     result = supabase.rpc("match_knowledge_chunks", payload).execute()
 
     count = len(result.data) if result.data else 0
     logger.info("RAG retrieved %s chunks for query (threshold=%.2f)", count, similarity_threshold)
+    # Teste manual: para confirmar que só vêm chunks semantic, logar o primeiro:
+    # if result.data: logger.info("first chunk metadata.chunk_strategy=%s", (result.data[0].get("metadata") or {}).get("chunk_strategy"))
     return result.data or []
 
 

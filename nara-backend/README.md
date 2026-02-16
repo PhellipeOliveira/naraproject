@@ -36,7 +36,10 @@ A geração de perguntas da **fase 2+** e o relatório final usam chunks em `kno
 
 **Para funcionar:**
 1. Migrações aplicadas (incluindo `match_knowledge_chunks` em `supabase/migrations/20260213000003_nara_rpc.sql`).
-2. Tabela populada e com embeddings: `python -m scripts.seed_knowledge_chunks` (a partir da raiz do backend, com `.env` configurado).
+2. Tabela populada e com embeddings:
+   - **Seed mínimo:** `python -m scripts.seed_knowledge_chunks`
+   - **Documentos completos (docs-rag + 01_FUNDAMENTOS):** `python -m scripts.ingest_docs_rag`  
+     Lê a pasta `docs-rag/` na raiz do repositório e, opcionalmente, `documentos/01_FUNDAMENTOS.md` como guia. Gera chunks por seções markdown, embeddings e insere em `knowledge_chunks`. Ver `documentos/01_FUNDAMENTOS.md` § 3 (Estrutura do Chunk para RAG).
 3. Índice vetorial: migration `20260213000005_nara_chunks_vector_index.sql` (cria ivfflat quando houver dados).
 
 **Como conferir:** Ao concluir as 15 perguntas da fase 1 e pedir as próximas, o backend chama `retrieve_for_question_generation` → RPC `match_knowledge_chunks`. Nos logs deve aparecer `RAG retrieved N chunks`. Se aparecer `RAG context empty`, não há chunks com embedding ou o threshold de similaridade não está sendo atingido.

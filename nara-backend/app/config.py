@@ -26,9 +26,10 @@ class Settings(BaseSettings):
     OPENAI_MODEL_ANALYSIS: str = "gpt-4o"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
-    # Resend (Email)
+    # Resend (Email) – domínio: phellipeoliveira.org
     RESEND_API_KEY: str = ""
-    EMAIL_FROM: str = "nara@seudominio.com"
+    EMAIL_FROM: str = "diagnostic.nara@phellipeoliveira.org"
+    RESEND_REPLY_TO: str = "contato@phellipeoliveira.org"
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:5173"
