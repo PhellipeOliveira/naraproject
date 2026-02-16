@@ -204,12 +204,24 @@ class DiagnosticService:
                 for q in questions
             ]
         else:
-            # Para fases 2+, as perguntas não ficam armazenadas; o front chama next-questions ao carregar
-            questions = []
+            # Para fases 2+, as perguntas vêm de current_phase_questions (persistidas ao gerar)
+            raw = diagnostic.get("current_phase_questions") or []
+            remaining = raw[current_q:] if isinstance(raw, list) else []
+            questions = [
+                {
+                    "id": q.get("id", (phase - 1) * 15 + current_q + i),
+                    "area": q.get("area", "Geral"),
+                    "type": q.get("type", "open_long"),
+                    "text": q.get("text", ""),
+                    "scale_labels": q.get("scale_labels"),
+                }
+                for i, q in enumerate(remaining)
+            ]
         total_answers = diagnostic.get("total_answers", 0)
         total_words = diagnostic.get("total_words", 0)
         areas_covered = diagnostic.get("areas_covered") or []
         areas_count = len(areas_covered) if isinstance(areas_covered, list) else 0
+        eligibility = await self.check_eligibility(diagnostic_id)
         return {
             "diagnostic_id": diagnostic_id,
             "result_token": result_token,
@@ -220,10 +232,11 @@ class DiagnosticService:
             "total_words": total_words,
             "areas_covered": areas_covered,
             "questions": questions,
+            "can_finish": eligibility["can_finish"],
             "progress": {
-                "overall": min(100, (total_answers / max(1, settings.MIN_QUESTIONS_TO_FINISH)) * 100),
+                "overall": min(100, eligibility["overall_progress"]),
                 "questions": min(100, (total_answers / max(1, settings.MIN_QUESTIONS_TO_FINISH)) * 100),
                 "words": min(100, (total_words / max(1, settings.MIN_WORDS_TO_FINISH)) * 100),
-                "coverage": (areas_count / max(1, settings.MIN_AREAS_COVERED)) * 100,
+                "coverage": min(100, (areas_count / max(1, settings.MIN_AREAS_COVERED)) * 100),
             },
         }

@@ -31,6 +31,7 @@ export default function Diagnostic() {
     totalAnswers,
     canFinish,
     progress,
+    phase,
     setQuestions,
     setProgress,
     goNext,
@@ -67,7 +68,7 @@ export default function Diagnostic() {
           totalAnswers: state.total_answers,
           totalWords: state.total_words,
           areasCovered: Array.isArray(state.areas_covered) ? state.areas_covered.length : 0,
-          canFinish: false,
+          canFinish: Boolean(state.can_finish),
           progress: state.progress ?? {
             overall: 0,
             questions: 0,
@@ -166,6 +167,31 @@ export default function Diagnostic() {
     }
   };
 
+  const handleLoadNextPhaseFromResume = async () => {
+    if (!id) return;
+    setGeneratingNextPhase(true);
+    setSubmitError(null);
+    try {
+      const next = await getNextQuestions(id);
+      useDiagnosticStore.setState({
+        phase: next.phase,
+        questions: next.questions,
+        currentQuestionIndex: 0,
+      });
+    } catch (e) {
+      console.error(e);
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : null;
+      setSubmitError(
+        typeof msg === "string" ? msg : "Erro ao carregar próximas perguntas. Tente novamente."
+      );
+    } finally {
+      setGeneratingNextPhase(false);
+    }
+  };
+
   const handleFinish = async () => {
     if (!id || !resultToken) return;
     setFinishing(true);
@@ -201,9 +227,23 @@ export default function Diagnostic() {
   }
 
   if (!currentQuestion && questions.length === 0) {
+    const canLoadNextPhase = totalAnswers > 0 && phase >= 2;
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <p className="text-muted-foreground">Nenhuma pergunta disponível.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center max-w-md">
+        {canLoadNextPhase ? (
+          <>
+            <p className="text-muted-foreground mb-4">
+              Suas perguntas desta fase não estavam salvas (retomada antiga). Você pode gerar a
+              próxima fase e continuar de onde parou — seu progresso ({totalAnswers} respostas) será
+              mantido.
+            </p>
+            <Button onClick={handleLoadNextPhaseFromResume} disabled={generatingNextPhase}>
+              {generatingNextPhase ? "Gerando..." : "Gerar próxima fase"}
+            </Button>
+          </>
+        ) : (
+          <p className="text-muted-foreground">Nenhuma pergunta disponível.</p>
+        )}
       </div>
     );
   }

@@ -293,6 +293,7 @@ class NaraDiagnosticPipeline:
             "current_phase": next_phase,
             "current_question": 0,
             "current_phase_questions_count": len(questions),
+            "current_phase_questions": questions,
         }).eq("id", diagnostic_id).execute()
 
         logger.info("Generated %s questions for phase %s", len(questions), next_phase)
