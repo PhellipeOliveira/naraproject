@@ -192,3 +192,49 @@ async def get_result(diagnostic_id: str):
             detail="Resultado não encontrado. Diagnóstico pode não ter sido finalizado.",
         )
     return DiagnosticResultResponse(**result)
+
+
+@router.post("/{diagnostic_id}/send-resume-link")
+async def send_resume_link(diagnostic_id: str):
+    """
+    Envia email com link para retomar o diagnóstico.
+    Usado quando o usuário clica em "Sair e continuar depois".
+    """
+    from app.services.email_service import email_service
+    from app.database import supabase
+    
+    # Buscar diagnóstico
+    diag_result = supabase.table("diagnostics").select("*").eq(
+        "id", diagnostic_id
+    ).single().execute()
+    
+    if not diag_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diagnóstico não encontrado"
+        )
+    
+    diagnostic = diag_result.data
+    
+    # Calcular progresso
+    total_answers = diagnostic.get("total_answers", 0)
+    progress = min(100, int((total_answers / 40) * 100))
+    
+    # Enviar email
+    try:
+        await email_service.send_resume_link(
+            to=diagnostic["email"],
+            user_name=diagnostic.get("full_name"),
+            diagnostic_id=diagnostic_id,
+            progress=progress
+        )
+        
+        return {
+            "status": "sent",
+            "message": f"Email enviado para {diagnostic['email']}"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao enviar email: {str(e)}"
+        )

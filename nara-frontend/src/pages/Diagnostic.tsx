@@ -9,6 +9,7 @@ import {
 import { useDiagnosticStore } from "../stores";
 import { ProgressBar } from "../components/diagnostic/ProgressBar";
 import { QuestionCard } from "../components/diagnostic/QuestionCard";
+import { SaveAndExitButton } from "../components/diagnostic/SaveAndExitButton";
 import { Button } from "../components/ui/button";
 import { setStoredDiagnosticId } from "../lib/session";
 
@@ -21,6 +22,7 @@ export default function Diagnostic() {
   const [generatingNextPhase, setGeneratingNextPhase] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [localAnswerText, setLocalAnswerText] = useState("");
+  const [userEmail, setUserEmail] = useState<string>("");
 
   const {
     diagnosticId,
@@ -44,6 +46,12 @@ export default function Diagnostic() {
     async (diagId: string) => {
       try {
         const state = await getCurrentState(diagId);
+        
+        // Salvar email do diagnóstico
+        if (state.email) {
+          setUserEmail(state.email);
+        }
+        
         if (state.result_token && useDiagnosticStore.getState().diagnosticId !== diagId) {
           useDiagnosticStore.setState({
             diagnosticId: diagId,
@@ -271,6 +279,18 @@ export default function Diagnostic() {
         totalAnswers={totalAnswers}
         overallPercent={progress?.overall}
       />
+
+      {/* Botão para salvar e sair */}
+      {userEmail && (
+        <div className="flex justify-end pt-2 pb-4">
+          <SaveAndExitButton
+            diagnosticId={diagnosticId || ""}
+            email={userEmail}
+            totalAnswers={totalAnswers}
+            onExit={() => navigate("/")}
+          />
+        </div>
+      )}
 
       {submitError && (
         <p className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4">

@@ -50,6 +50,15 @@ export async function submitAnswer(
   return data;
 }
 
+export async function sendResumeLink(
+  diagnosticId: string
+): Promise<{ status: string; message: string }> {
+  const { data } = await apiClient.post(
+    `/diagnostic/${diagnosticId}/send-resume-link`
+  );
+  return data;
+}
+
 export async function getNextQuestions(
   diagnosticId: string
 ): Promise<NextQuestionsResponse> {
