@@ -74,29 +74,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Rotas da API
 app.include_router(api_router, prefix="/api/v1")
 
-
-@app.get("/health")
-async def health():
-    """Health check simples."""
-    return {"status": "healthy", "version": settings.APP_VERSION}
-
-
-@app.get("/health/detailed")
-async def health_detailed():
-    """Health check com verificação de dependências (ex.: Supabase)."""
-    from app.database import supabase
-
-    checks = {"database": "unknown"}
-
-    try:
-        supabase.table("areas").select("id").limit(1).execute()
-        checks["database"] = "healthy"
-    except Exception as e:
-        checks["database"] = f"unhealthy: {str(e)}"
-
-    all_healthy = all(v == "healthy" for v in checks.values())
-    return {
-        "status": "healthy" if all_healthy else "degraded",
-        "checks": checks,
-        "version": settings.APP_VERSION,
-    }
+# Health checks
+from app.api.health import router as health_router
+app.include_router(health_router)
