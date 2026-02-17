@@ -5,9 +5,8 @@
 export interface Question {
   id: number;
   area: string;
-  type: "scale" | "open_long" | "open_short";
+  type: "open_long" | "open_short";  // Removido "scale" - apenas perguntas narrativas
   text: string;
-  scale_labels?: string[];
   follow_up_hint?: string;
 }
 
@@ -73,8 +72,28 @@ export interface Recommendation {
   area_related?: string;
 }
 
+export interface VetorEstado {
+  motor_dominante: string;
+  motor_secundario: string;
+  estagio_jornada: string;
+  crise_raiz: string;
+  crises_derivadas: string[];
+  ponto_entrada_ideal: string;
+  dominios_alavanca: string[];
+  tom_emocional: string;
+  risco_principal: string;
+  necessidade_atual: string;
+}
+
 export interface DiagnosticResultResponse {
-  overall_score: number;
+  // Novos campos V2
+  vetor_estado: VetorEstado;
+  memorias_vermelhas: string[];
+  areas_silenciadas: number[];
+  ancoras_sugeridas: string[];
+  
+  // Campos legacy (mantidos por compatibilidade)
+  overall_score?: number;
   phase_identified: string;
   motor_dominante: string;
   motor_secundario?: string;

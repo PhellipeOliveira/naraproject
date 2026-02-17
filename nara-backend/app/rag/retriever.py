@@ -17,6 +17,7 @@ async def retrieve_relevant_chunks(
     filter_crise: Optional[list[str]] = None,
     similarity_threshold: float | None = None,
     filter_chunk_strategy: Optional[str] = "semantic",
+    filter_version: int = 2,  # Novo: filtrar por version (default=2)
 ) -> list[dict[str, Any]]:
     """
     Busca chunks relevantes para uma query usando similaridade semântica.
@@ -30,6 +31,7 @@ async def retrieve_relevant_chunks(
         similarity_threshold: Score mínimo de similaridade
         filter_chunk_strategy: Filtrar por metadata.chunk_strategy (ex: "semantic").
             Default "semantic" para respostas mais coerentes. None = não filtra (retrocompatível).
+        filter_version: Versão dos chunks (1=legacy, 2=base metodológica refinada)
 
     Returns:
         Lista de chunks com similarity score
@@ -54,12 +56,18 @@ async def retrieve_relevant_chunks(
         payload["filter_chunk_strategy"] = filter_chunk_strategy
 
     result = supabase.rpc("match_knowledge_chunks", payload).execute()
+    
+    # Filtrar por version no client (RPC não tem esse filtro ainda)
+    filtered_data = []
+    if result.data:
+        for chunk in result.data:
+            chunk_version = chunk.get("version", 1)
+            if chunk_version == filter_version:
+                filtered_data.append(chunk)
 
-    count = len(result.data) if result.data else 0
-    logger.info("RAG retrieved %s chunks for query (threshold=%.2f)", count, similarity_threshold)
-    # Teste manual: para confirmar que só vêm chunks semantic, logar o primeiro:
-    # if result.data: logger.info("first chunk metadata.chunk_strategy=%s", (result.data[0].get("metadata") or {}).get("chunk_strategy"))
-    return result.data or []
+    count = len(filtered_data)
+    logger.info("RAG retrieved %s chunks (version=%d) for query (threshold=%.2f)", count, filter_version, similarity_threshold)
+    return filtered_data
 
 
 async def retrieve_for_question_generation(
@@ -115,22 +123,30 @@ async def retrieve_for_report_generation(
     diagnostic_id: str,
     scores_by_area: dict[str, Any],
     all_responses: list[dict[str, Any]],
+    context_analysis: Optional[dict[str, Any]] = None,
 ) -> str:
     """
-    Busca contexto relevante para geração do relatório final.
+    Busca contexto relevante para geração do relatório final usando RAG Query Template.
 
     Args:
         diagnostic_id: ID do diagnóstico
-        scores_by_area: Scores calculados por área
+        scores_by_area: Scores calculados por área (LEGACY)
         all_responses: Todas as respostas do usuário
+        context_analysis: Análise contextual do analyzer (Memórias Vermelhas, etc.)
 
     Returns:
-        Contexto concatenado para o prompt
+        Contexto concatenado para o prompt usando template RAG refinado
     """
+    context_analysis = context_analysis or {}
+    
+    # Identificar áreas críticas (do analyzer ou scores)
+    areas_criticas_ids = context_analysis.get("areas_criticas", [])
     critical_areas = [
         area_name
         for area_name, data in scores_by_area.items()
         if (data or {}).get("score", 10) < 5.0
+    ] if not areas_criticas_ids else [
+        f"Área {i}" for i in areas_criticas_ids[:4]
     ]
 
     response_summary = " ".join(
@@ -141,32 +157,69 @@ async def retrieve_for_report_generation(
         ]
     )[:2000]
 
+    # Extrair informações do context_analysis para query estruturada
+    motor = context_analysis.get("ponto_entrada", "Emocional")
+    tom_emocional = context_analysis.get("tom_emocional", "neutro")
+    
+    # Construir query usando template RAG refinado
+    rag_query = f"""
+    Com base na Metodologia NARA, busque estratégias para:
+    
+    ÁREAS CRÍTICAS: {", ".join(critical_areas[:4])}
+    FASE DA JORNADA: Germinar/Enraizar (a ser identificado)
+    CONTEXTO DE CONFLITO: {response_summary[:500]}
+    
+    PONTO DE ENTRADA IDENTIFICADO: {motor}
+    TOM EMOCIONAL: {tom_emocional}
+    
+    Retorne documentos que ajudem a:
+    1. Identificar o motor motivacional dominante
+    2. Sugerir Âncoras Práticas alinhadas ao estágio da jornada
+    3. Revelar conexões entre áreas para diagnóstico integrado
+    4. Aplicar técnicas de TCC apropriadas ao caso
+    """
+
     context_chunks: list[dict[str, Any]] = []
 
-    for area in critical_areas[:4]:
-        chunks = await retrieve_relevant_chunks(
-            query=f"critérios análise {area} sinais crise intervenção",
-            top_k=3,
-            filter_chapter=area,
-        )
-        context_chunks.extend(chunks)
-
+    # Buscar chunks metodológicos (fases, motores, clusters, âncoras)
     methodology = await retrieve_relevant_chunks(
-        query="fases jornada motores motivacionais clusters crise assunção intencional",
+        query="fases jornada motores motivacionais clusters crise âncoras práticas pontos entrada assunção intencional",
         top_k=5,
+        filter_version=2,
     )
     context_chunks.extend(methodology)
 
+    # Buscar chunks de áreas críticas
+    for area in critical_areas[:4]:
+        if "Área" not in area:  # Evitar buscar "Área 1" literal
+            chunks = await retrieve_relevant_chunks(
+                query=f"{area} sinais conflito componentes domínio intervenção autossabotagem",
+                top_k=2,
+                filter_chapter=area,
+                filter_version=2,
+            )
+            context_chunks.extend(chunks)
+
+    # Buscar chunks baseados na resposta do usuário
     if response_summary:
         response_chunks = await retrieve_relevant_chunks(
             query=response_summary,
             top_k=3,
+            filter_version=2,
         )
         context_chunks.extend(response_chunks)
 
+    # Buscar Técnicas de TCC e Âncoras Práticas
+    tcc_chunks = await retrieve_relevant_chunks(
+        query="técnicas TCC âncoras práticas ponto de entrada",
+        top_k=3,
+        filter_version=2,
+    )
+    context_chunks.extend(tcc_chunks)
+
     context = "\n\n---\n\n".join(
         [
-            f"**{chunk.get('chapter', 'Metodologia')}**\n{chunk.get('content', '')}"
+            f"**{chunk.get('chapter', 'Metodologia')}** - {chunk.get('section', '')}\n{chunk.get('content', '')}"
             for chunk in context_chunks
         ]
     )

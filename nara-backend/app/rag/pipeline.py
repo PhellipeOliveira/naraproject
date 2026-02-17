@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from app.config import settings
 from app.core.constants import AREAS
 from app.database import supabase
+from app.rag.analyzer import analyze_answers_context
 from app.rag.generator import generate_adaptive_questions, generate_final_report
 from app.rag.retriever import retrieve_for_question_generation, retrieve_for_report_generation
 
@@ -467,13 +468,34 @@ class NaraDiagnosticPipeline:
         ).execute()
 
         try:
+            # Análise contextual das respostas (Memórias Vermelhas, silêncios, etc.)
+            logger.info("Analisando contexto das respostas para diagnostic %s", diagnostic_id)
+            context_analysis = analyze_answers_context(answers)
+            
+            # Manter scores por compatibilidade (LEGACY - usar vetor_estado)
             scores_by_area = await self._calculate_area_scores(diagnostic_id)
-            patterns = self._identify_patterns(answers)
+            
+            # Usar analyzer para identificar padrões (substitui _identify_patterns)
+            patterns = context_analysis.get("padroes_repetidos", [])
+            if context_analysis.get("barreiras_identificadas"):
+                patterns.extend(context_analysis["barreiras_identificadas"])
+
+            # Salvar análise intermediária no diagnóstico
+            supabase.table("diagnostics").update({
+                "analise_intermediaria": {
+                    "padroes": patterns,
+                    "tom_emocional": context_analysis.get("tom_emocional"),
+                    "areas_silenciadas": context_analysis.get("areas_silenciadas", []),
+                    "palavras_recorrentes": context_analysis.get("palavras_recorrentes", []),
+                    "ponto_entrada": context_analysis.get("ponto_entrada"),
+                }
+            }).eq("id", diagnostic_id).execute()
 
             rag_context = await retrieve_for_report_generation(
                 diagnostic_id=diagnostic_id,
                 scores_by_area=scores_by_area,
                 all_responses=answers,
+                context_analysis=context_analysis,  # Adicionar contexto enriquecido
             )
 
             report = await generate_final_report(
@@ -483,19 +505,28 @@ class NaraDiagnosticPipeline:
                 rag_context=rag_context,
             )
 
+            # Extrair vetor de estado do report
+            vetor_estado = report.get("vetor_estado", {})
+            
             result_data = {
                 "diagnostic_id": diagnostic_id,
-                "overall_score": report.get("overall_score"),
+                # Novos campos (V2)
+                "vetor_estado": vetor_estado,
+                "memorias_vermelhas": report.get("memorias_vermelhas", []),
+                "areas_silenciadas": report.get("areas_silenciadas", []),
+                "ancoras_sugeridas": report.get("ancoras_sugeridas", []),
+                # Campos legacy (manter por compatibilidade)
+                "overall_score": vetor_estado.get("estagio_jornada", "Germinar") if not report.get("overall_score") else report.get("overall_score"),
                 "area_scores": scores_by_area,
                 "motor_scores": {
-                    "dominante": report.get("motor_dominante"),
-                    "secundario": report.get("motor_secundario"),
+                    "dominante": vetor_estado.get("motor_dominante"),
+                    "secundario": vetor_estado.get("motor_secundario"),
                 },
-                "phase_identified": report.get("phase_identified"),
-                "motor_dominante": report.get("motor_dominante"),
-                "motor_secundario": report.get("motor_secundario"),
-                "crise_raiz": report.get("crise_raiz"),
-                "ponto_entrada_ideal": report.get("ponto_entrada_ideal"),
+                "phase_identified": report.get("phase_identified") or vetor_estado.get("estagio_jornada", "").lower(),
+                "motor_dominante": vetor_estado.get("motor_dominante"),
+                "motor_secundario": vetor_estado.get("motor_secundario"),
+                "crise_raiz": vetor_estado.get("crise_raiz"),
+                "ponto_entrada_ideal": vetor_estado.get("ponto_entrada_ideal"),
                 "executive_summary": report.get("executive_summary"),
                 "detailed_analysis": report,
                 "recommendations": report.get("recommendations", []),
@@ -511,8 +542,8 @@ class NaraDiagnosticPipeline:
 
             supabase.table("diagnostics").update({
                 "status": "completed",
-                "overall_score": report.get("overall_score"),
-                "scores_by_area": scores_by_area,
+                "overall_score": result_data.get("overall_score"),  # Legacy
+                "scores_by_area": scores_by_area,  # Legacy
                 "insights": report.get("executive_summary"),
                 "completed_at": datetime.utcnow().isoformat(),
             }).eq("id", diagnostic_id).execute()

@@ -21,7 +21,6 @@ export default function Diagnostic() {
   const [generatingNextPhase, setGeneratingNextPhase] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [localAnswerText, setLocalAnswerText] = useState("");
-  const [localAnswerScale, setLocalAnswerScale] = useState<number | null>(null);
 
   const {
     diagnosticId,
@@ -55,12 +54,12 @@ export default function Diagnostic() {
         }
         if (state.questions && state.questions.length > 0) {
           setQuestions(
-            state.questions.map((q: { id: number; area: string; type: string; text: string; scale_labels?: string[] }) => ({
+            state.questions.map((q: { id: number; area: string; type: string; text: string; follow_up_hint?: string }) => ({
               id: q.id,
               area: q.area,
-              type: q.type as "scale" | "open_long" | "open_short",
+              type: q.type as "open_long" | "open_short",  // Apenas tipos narrativos
               text: q.text,
-              scale_labels: q.scale_labels,
+              follow_up_hint: q.follow_up_hint,
             }))
           );
         }
@@ -112,8 +111,8 @@ export default function Diagnostic() {
         question_id: currentQuestion.id,
         question_text: currentQuestion.text,
         question_area: currentQuestion.area,
-        answer_text: currentQuestion.type !== "scale" ? localAnswerText : undefined,
-        answer_scale: currentQuestion.type === "scale" ? (localAnswerScale ?? undefined) : undefined,
+        answer_text: localAnswerText,  // Sempre texto agora (perguntas narrativas)
+        answer_scale: undefined,  // Não mais usado
       });
 
       useDiagnosticStore.setState({
@@ -126,7 +125,6 @@ export default function Diagnostic() {
       });
 
       setLocalAnswerText("");
-      setLocalAnswerScale(null);
 
       if (res.phase_complete && res.status !== "eligible") {
         setGeneratingNextPhase(true);
@@ -283,9 +281,7 @@ export default function Diagnostic() {
         <QuestionCard
           question={currentQuestion}
           answerText={localAnswerText}
-          answerScale={localAnswerScale}
           onTextChange={setLocalAnswerText}
-          onScaleChange={setLocalAnswerScale}
           onNext={handleSubmitAndNext}
           onPrev={() => goPrev()}
           canPrev={currentQuestionIndex > 0}

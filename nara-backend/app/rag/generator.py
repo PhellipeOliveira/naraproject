@@ -42,8 +42,44 @@ async def generate_adaptive_questions(
         ]
     )
 
+    system_prompt = """Você é Nara, uma Engenheira de Mindset e Especialista em Transformação Narrativa. 
+Sua missão é atuar como facilitadora de travessias internas, ajudando o usuário a 
+reescrever a história que conta para si mesmo.
+
+AS 12 ÁREAS ESTRUTURANTES (CÍRCULO NARRATIVO):
+1. Saúde Física - Constituição e disposição corporal.
+2. Saúde Mental - Equilíbrio cognitivo e gestão de emoções.
+3. Saúde Espiritual - Força da fé e convicção interior.
+4. Vida Pessoal - Essência, autoconhecimento e interesses individuais.
+5. Vida Amorosa - Relacionamentos íntimos e convívio afetuoso.
+6. Vida Familiar - Vínculos de parentesco e valores morais herdados.
+7. Vida Social - Interações comunitárias e prestígio social.
+8. Vida Profissional - Domínio técnico, carreira e autoridade.
+9. Finanças - Gestão de capital e recursos materiais.
+10. Educação - Aprendizagem contínua e aperfeiçoamento intelectual.
+11. Inovação - Criatividade e resolução de problemas.
+12. Lazer - Recuperação de energia e entretenimento.
+
+OS 4 PONTOS DE ENTRADA:
+- Emocional: Quando relata estados afetivos → Validar e regular
+- Simbólico: Quando relata falta de sentido → Ressignificar
+- Comportamental: Quando foca em hábitos → Sugerir protocolos
+- Existencial: Quando questiona papel de vida → Reposicionar missão
+
+REGRAS CRÍTICAS:
+1. IDENTIFIQUE O MOTOR: Descubra se a fala reflete Necessidade (dor), Valor (integridade), Desejo (realização) ou Propósito (legado).
+2. IDENTIFIQUE O PONTO DE ENTRADA: Qual porta está aberta na narrativa?
+3. MAPEIE O CÍRCULO NARRATIVO (CN): Investigue quem são as pessoas, qual o espaço e qual a atmosfera emocional.
+4. FOCO NO GAP MX: Explore a distância entre o estado atual (M1) e a meta desejada (MX).
+5. USE LINGUAGEM SIMBÓLICA: Use metáforas como "pista", "semente", "fruto" e "âncoras".
+6. ESCUTA ATIVA: Use mensagens contextuais como "Percebi que sua narrativa sobre [Área] foca em um padrão de [Barreira]...".
+7. TRATE SILÊNCIOS: Note o que não foi respondido ou foi vago — indica bloqueios.
+8. EVITE clichês genéricos; foque em reestruturação cognitiva (TCC).
+
+Retorne apenas JSON válido."""
+
     prompt = f"""# TAREFA
-Você é um especialista em Transformação Narrativa. Gere exatamente 15 perguntas para a Fase {phase} do diagnóstico.
+Gere exatamente 15 perguntas NARRATIVAS E ABERTAS para a Fase {phase} do diagnóstico.
 
 ## RESPOSTAS ANTERIORES DO USUÁRIO
 {responses_text}
@@ -59,11 +95,13 @@ Você é um especialista em Transformação Narrativa. Gere exatamente 15 pergun
 
 ## REGRAS IMPORTANTES
 1. Distribua perguntas priorizando as áreas menos cobertas
-2. Mix de tipos: 5 perguntas de escala (1-5), 8 perguntas abertas longas, 2 curtas
-3. Tom empático, curioso e não-julgador
+2. TODAS as perguntas devem ser do tipo "open_long" (perguntas abertas e narrativas)
+3. Tom empático-autoritário: provocador mas compassivo
 4. Referencie respostas anteriores quando relevante ("Você mencionou que...")
 5. Aprofunde em temas onde o usuário demonstrou conflito ou emoção
-6. Evite perguntas superficiais - busque a raiz dos padrões
+6. Use linguagem simbólica: "âncoras", "clímax", "círculo narrativo"
+7. Busque a raiz dos padrões, não sintomas superficiais
+8. Identifique o Ponto de Entrada nas respostas (Emocional, Simbólico, Comportamental, Existencial)
 
 ## FORMATO DE SAÍDA
 Retorne um JSON com uma chave "questions" contendo um array de 15 objetos no formato:
@@ -71,8 +109,8 @@ Retorne um JSON com uma chave "questions" contendo um array de 15 objetos no for
   "questions": [
     {{
       "area": "Nome da Área (ex: Saúde Física)",
-      "type": "scale|open_long|open_short",
-      "text": "Texto da pergunta...",
+      "type": "open_long",
+      "text": "Texto da pergunta narrativa...",
       "follow_up_hint": "Contexto para entender a resposta"
     }}
   ]
@@ -82,10 +120,7 @@ Retorne um JSON com uma chave "questions" contendo um array de 15 objetos no for
     response = await client.chat.completions.create(
         model=settings.OPENAI_MODEL_QUESTIONS,
         messages=[
-            {
-                "role": "system",
-                "content": "Você é um especialista em diagnóstico de transformação narrativa baseado na metodologia do Círculo Narrativo. Retorne apenas JSON válido.",
-            },
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
         temperature=0.7,
@@ -156,82 +191,114 @@ async def generate_final_report(
             elif scale is not None:
                 responses_text += f"- {qt}: {scale}/5\n"
 
-    prompt = f"""# TAREFA
-Você é um especialista em Transformação Narrativa. Gere um diagnóstico completo, profundo e transformador.
+    system_prompt = """Você é Nara, analista sênior em Engenharia de Mindset. Sua missão é entregar um 
+Diagnóstico Narrativo que revele a Incongruência Simbólica do usuário e aponte 
+o caminho para a Nova Identidade.
 
-## RESPOSTAS DO USUÁRIO
+SUA MISSÃO:
+Identificar onde o "fio narrativo" se rompeu (Identidade -> Sentido -> Ação -> Conexão) 
+e propor o reposicionamento da personagem.
+
+REGRAS CRÍTICAS:
+1. DIAGNÓSTICO M1: Classifique a dor principal como Crise de Identidade, Sentido, Execução ou Conexão.
+2. EIXOS DE TRANSFORMAÇÃO: Analise o desalinhamento entre Narrativa (crenças), Identidade (valores) e Hábitos (princípios).
+3. FASE DA JORNADA: Identifique se o usuário está em: Germinar, Enraizar, Desenvolver, Florescer, Frutificar ou Realizar.
+4. PONTO DE ENTRADA: Determine a porta aberta (Emocional, Simbólico, Comportamental, Existencial).
+5. PLANO DE ASSUNÇÃO INTENCIONAL: Proponha ações para: Reconhecer, Modelar, Assumir e Reforçar, usando Âncoras Práticas específicas.
+6. CITE O USUÁRIO: Use aspas para destacar as "Memórias Vermelhas" (M1) mencionadas.
+7. TOM: Empático-autoritário, como um Engenheiro da Alma (provocador mas compassivo).
+8. LINGUAGEM SIMBÓLICA: Use termos como "âncoras", "clímax", "círculo narrativo", "travessia".
+9. EVITE CLICHÊS: Não use autoajuda genérica; use técnicas de TCC.
+
+VETOR DE ESTADO:
+O diagnóstico deve incluir um vetor de estado qualitativo (não scores numéricos).
+
+Retorne apenas JSON válido."""
+
+    prompt = f"""# TAREFA
+Gere um Diagnóstico Narrativo completo, profundo e transformador baseado na metodologia NARA.
+
+## RESPOSTAS DO USUÁRIO (Agrupadas por Área)
 {responses_text}
 
-## SCORES CALCULADOS POR ÁREA
-{json.dumps(scores_by_area, indent=2, ensure_ascii=False)}
-
-## PADRÕES IDENTIFICADOS
+## PADRÕES IDENTIFICADOS (Pré-análise)
 {", ".join(identified_patterns) if identified_patterns else "A serem identificados na análise"}
 
-## CONTEXTO METODOLÓGICO
+## SCORES CALCULADOS POR ÁREA (Apenas referência interna)
+{json.dumps(scores_by_area, indent=2, ensure_ascii=False)}
+
+## CONTEXTO METODOLÓGICO (RAG)
 {rag_context}
 
 ## ESTRUTURA DO RELATÓRIO (JSON)
 Retorne um JSON com EXATAMENTE esta estrutura:
 {{
-  "executive_summary": "Resumo executivo de 150-200 palavras. Seja direto mas empático.",
-  "overall_score": 0.0-10.0,
+  "executive_summary": "Resumo executivo de 150-200 palavras. Use linguagem simbólica e cite frases do usuário.",
+  "vetor_estado": {{
+    "motor_dominante": "Necessidade|Valor|Desejo|Propósito",
+    "motor_secundario": "Necessidade|Valor|Desejo|Propósito",
+    "estagio_jornada": "Germinar|Enraizar|Desenvolver|Florescer|Frutificar|Realizar",
+    "crise_raiz": "Identidade Raiz|Sentido e Direção|Execução e Estrutura|Conexão e Expressão|Incongruência Identidade-Cultura|Transformação de Personagem",
+    "crises_derivadas": ["Crise secundária 1", "Crise secundária 2"],
+    "ponto_entrada_ideal": "Emocional|Simbólico|Comportamental|Existencial",
+    "dominios_alavanca": ["D1", "D2"],
+    "tom_emocional": "vergonha|indignação|apatia|urgência|tristeza|neutro",
+    "risco_principal": "Descrição do principal risco identificado",
+    "necessidade_atual": "O que o usuário precisa fazer agora"
+  }},
+  "memorias_vermelhas": ["Frase literal 1 do usuário", "Frase literal 2 do usuário"],
+  "areas_silenciadas": [1, 5],
+  "ancoras_sugeridas": ["Âncora Prática 1 das 19", "Âncora Prática 2 das 19", "Âncora Prática 3 das 19"],
   "phase_identified": "germinar|enraizar|desenvolver|florescer|frutificar|realizar",
-  "motor_dominante": "Necessidade|Valor|Desejo|Propósito",
-  "motor_secundario": "Necessidade|Valor|Desejo|Propósito",
-  "crise_raiz": "Identidade|Sentido|Execução|Conexão|Incongruência|Transformação",
-  "ponto_entrada_ideal": "Simbólico|Cognitivo|Comportamental|Emocional|Ambiental|Temporal",
   "area_analysis": [
     {{
       "area_name": "Nome da Área",
-      "score": 0.0-10.0,
+      "area_id": 1,
       "status": "crítico|atenção|estável|forte",
-      "analysis": "Análise de 2-3 frases baseada nas respostas",
+      "analysis": "Análise de 2-3 frases baseada nas respostas. Cite frases do usuário.",
       "key_insight": "Insight principal desta área"
     }}
   ],
   "patterns": {{
     "correlations": ["Padrão 1 identificado entre áreas", "Padrão 2"],
-    "contradictions": ["Contradição 1 nas respostas", "Contradição 2"],
+    "contradictions": ["Contradição 1 nas respostas usando aspas do usuário", "Contradição 2"],
     "self_sabotage_cycles": ["Ciclo de autossabotagem identificado"]
   }},
-  "strengths": ["Ponto forte 1", "Ponto forte 2", "Ponto forte 3"],
+  "strengths": ["Ponto forte 1 baseado em citações", "Ponto forte 2", "Ponto forte 3"],
   "development_areas": [
     {{
       "area_name": "Área para desenvolvimento",
       "priority": "alta|média|baixa",
-      "reasoning": "Por que esta área precisa de atenção"
+      "reasoning": "Por que esta área precisa de atenção (cite evidências)"
     }}
   ],
   "recommendations": [
     {{
-      "action": "Ação concreta e específica",
+      "action": "Ação concreta usando uma das 19 Âncoras Práticas",
       "timeframe": "imediato|curto_prazo|medio_prazo",
-      "area_related": "Área relacionada"
+      "area_related": "Área relacionada",
+      "ancor_type": "Nome da Âncora Prática"
     }}
   ]
 }}
 
-## DIRETRIZES
-- Seja empático mas direto - evite rodeios
-- Use frases do próprio usuário como evidência
-- Identifique incongruências entre narrativa, identidade e hábitos
-- Termine cada seção com perspectiva de crescimento
-- Recomendações devem ser concretas, específicas e realizáveis
-- Identifique o motor motivacional dominante baseado nas respostas
+## DIRETRIZES ESPECÍFICAS
+1. USE MEMÓRIAS VERMELHAS: Cite entre aspas frases literais do usuário que revelam conflitos
+2. IDENTIFIQUE SILÊNCIOS: Note áreas não respondidas ou respondidas vagamente
+3. ÂNCORAS PRÁTICAS: Escolha das 19 disponíveis (Referências, Objetos, Ambientes, Grupo, Tom, Vocabulário, Postura, Vestimenta, Rituais Matinais, Rituais Noturnos, Limites, Marcos, Emoção Projetada, Gestão de Energia, Práticas de Recarga, Tarefas Identitárias, Microentregas, Exposição Gradual, Testemunhas)
+4. LINGUAGEM METODOLÓGICA: Use "Gap MX", "M1", "CN+", "Círculo Narrativo"
+5. TOM EMPÁTICO-AUTORITÁRIO: Provocador mas compassivo
+6. CONEXÕES ENTRE ÁREAS: Revele como conflitos em uma área afetam outras
 """
 
     response = await client.chat.completions.create(
         model=settings.OPENAI_MODEL_ANALYSIS,
         messages=[
-            {
-                "role": "system",
-                "content": "Você é um especialista em desenvolvimento humano e transformação narrativa, treinado na metodologia do Círculo Narrativo. Retorne apenas JSON válido.",
-            },
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
         temperature=0.5,
-        max_tokens=4000,
+        max_tokens=5000,
         response_format={"type": "json_object"},
     )
 

@@ -52,50 +52,175 @@ export default function Result() {
     );
   }
 
+  const vetorEstado = data.vetor_estado;
+
   return (
     <div className="min-h-screen p-4 max-w-3xl mx-auto space-y-6">
+      {/* VETOR DE ESTADO */}
       <Card>
         <CardHeader>
           <h1 className="text-2xl font-bold">Seu Diagnóstico NARA</h1>
-          <p className="text-muted-foreground">
-            Fase da jornada: {data.phase_identified} · Motor dominante: {data.motor_dominante}
+          <p className="text-sm text-muted-foreground">
+            Transformação Narrativa · Metodologia Phellipe Oliveira
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="text-4xl font-bold text-primary">
-              {data.overall_score != null ? data.overall_score.toFixed(1) : "—"}
+        <CardContent className="space-y-6">
+          {/* Vetor de Estado - Cards em grid */}
+          {vetorEstado && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                <p className="text-xs text-muted-foreground mb-1">Motor Dominante</p>
+                <p className="font-semibold text-lg text-primary">{vetorEstado.motor_dominante}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                <p className="text-xs text-muted-foreground mb-1">Estágio da Jornada</p>
+                <p className="font-semibold text-lg text-primary">{vetorEstado.estagio_jornada}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/10 sm:col-span-2">
+                <p className="text-xs text-muted-foreground mb-1">Crise Raiz Identificada</p>
+                <p className="font-semibold text-destructive">{vetorEstado.crise_raiz}</p>
+              </div>
+              <div className="p-4 rounded-lg bg-muted sm:col-span-2">
+                <p className="text-xs text-muted-foreground mb-1">Necessidade Atual</p>
+                <p className="text-sm">{vetorEstado.necessidade_atual}</p>
+              </div>
             </div>
-            <span className="text-muted-foreground">Score geral (0–10)</span>
-          </div>
+          )}
+
+          {/* Executive Summary */}
           <div>
-            <h2 className="font-semibold mb-2">Resumo</h2>
+            <h2 className="font-semibold mb-2">Diagnóstico Narrativo</h2>
             <p className="text-sm text-muted-foreground whitespace-pre-wrap">
               {data.executive_summary}
             </p>
           </div>
-          {data.strengths && data.strengths.length > 0 && (
-            <div>
-              <h2 className="font-semibold mb-2">Pontos fortes</h2>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                {data.strengths.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {data.recommendations && data.recommendations.length > 0 && (
-            <div>
-              <h2 className="font-semibold mb-2">Recomendações</h2>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                {data.recommendations.map((r, i) => (
-                  <li key={i}>{r.action}</li>
-                ))}
-              </ul>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* MEMÓRIAS VERMELHAS */}
+      {data.memorias_vermelhas && data.memorias_vermelhas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-bold">Memórias Vermelhas</h2>
+            <p className="text-sm text-muted-foreground">
+              Frases suas que revelam conflitos não dominados
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {data.memorias_vermelhas.map((memoria, i) => (
+              <div key={i} className="p-3 rounded-lg bg-destructive/5 border-l-4 border-destructive">
+                <p className="text-sm italic">"{memoria}"</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ÂNCORAS PRÁTICAS SUGERIDAS */}
+      {data.ancoras_sugeridas && data.ancoras_sugeridas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-bold">Âncoras Práticas para Assunção</h2>
+            <p className="text-sm text-muted-foreground">
+              Ações concretas para encarnar sua nova identidade
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {data.ancoras_sugeridas.map((ancor, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-primary/5">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                    {i + 1}
+                  </div>
+                  <p className="text-sm font-medium">{ancor}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PONTOS FORTES */}
+      {data.strengths && data.strengths.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-bold">Capital Simbólico</h2>
+            <p className="text-sm text-muted-foreground">Recursos e forças identificados</p>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc list-inside text-sm space-y-2">
+              {data.strengths.map((s, i) => (
+                <li key={i} className="text-muted-foreground">{s}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ANÁLISE POR ÁREA */}
+      {data.area_analysis && data.area_analysis.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-bold">Análise do Círculo Narrativo</h2>
+            <p className="text-sm text-muted-foreground">As 12 Áreas Estruturantes</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {data.area_analysis.map((area, i) => (
+              <div key={i} className="p-4 rounded-lg border">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold">{area.area_name}</h3>
+                  <span className={cn(
+                    "px-2 py-1 rounded text-xs font-medium",
+                    area.status === "crítico" && "bg-destructive/10 text-destructive",
+                    area.status === "atenção" && "bg-yellow-500/10 text-yellow-700 dark:text-yellow-500",
+                    area.status === "estável" && "bg-blue-500/10 text-blue-700 dark:text-blue-500",
+                    area.status === "forte" && "bg-green-500/10 text-green-700 dark:text-green-500"
+                  )}>
+                    {area.status}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">{area.analysis}</p>
+                {area.key_insight && (
+                  <p className="text-sm font-medium italic border-l-4 border-primary pl-3">
+                    {area.key_insight}
+                  </p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* RECOMENDAÇÕES */}
+      {data.recommendations && data.recommendations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-bold">Plano de Assunção Intencional (M2X)</h2>
+            <p className="text-sm text-muted-foreground">Próximos passos para sua travessia</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.recommendations.map((r, i) => (
+                <div key={i} className="p-3 rounded-lg border-l-4 border-primary bg-muted">
+                  <p className="text-sm font-medium mb-1">{r.action}</p>
+                  <div className="flex gap-2 text-xs text-muted-foreground">
+                    <span className="px-2 py-0.5 rounded bg-background">
+                      {r.timeframe === "imediato" && "Imediato"}
+                      {r.timeframe === "curto_prazo" && "Curto prazo"}
+                      {r.timeframe === "medio_prazo" && "Médio prazo"}
+                    </span>
+                    {r.area_related && (
+                      <span className="px-2 py-0.5 rounded bg-background">
+                        {r.area_related}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!npsSent && diagnosticId && (
         <Card>
