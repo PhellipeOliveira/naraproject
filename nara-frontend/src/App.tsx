@@ -19,6 +19,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/diagnostico/iniciar" element={<StartDiagnostic />} />
           <Route path="/diagnostico/:id" element={<Diagnostic />} />
+          <Route path="/diagnostico/:id/retomar" element={<Diagnostic />} />
           <Route path="/resultado/:token" element={<Result />} />
         </Routes>
       </BrowserRouter>
