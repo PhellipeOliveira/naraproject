@@ -1,8 +1,11 @@
--- Views SQL para métricas de sucesso
+-- Views SQL ESTENDIDAS para métricas de sucesso
 -- Conforme 07_DEPLOY_QUALIDADE.md - Seção 2
+-- NOTA: Views básicas (v_completion_rate, v_weekly_nps, v_diagnostic_funnel) 
+--       já existem em 20260213000006_nara_views_metrics.sql
+-- Esta migration ESTENDE com views adicionais
 
 -- ====================================================================
--- 1. Taxa de conclusão por período
+-- ATUALIZAÇÃO: Taxa de conclusão por período (adiciona percentage)
 -- ====================================================================
 CREATE OR REPLACE VIEW v_completion_rate AS
 SELECT
