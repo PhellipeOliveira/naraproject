@@ -225,6 +225,7 @@ class DiagnosticService:
         return {
             "diagnostic_id": diagnostic_id,
             "result_token": result_token,
+            "email": diagnostic.get("email"),  # Adicionar email para SaveAndExitButton
             "status": diagnostic["status"],
             "current_phase": phase,
             "current_question": current_q,

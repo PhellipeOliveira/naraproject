@@ -281,16 +281,14 @@ export default function Diagnostic() {
       />
 
       {/* Botão para salvar e sair */}
-      {userEmail && (
-        <div className="flex justify-end pt-2 pb-4">
-          <SaveAndExitButton
-            diagnosticId={diagnosticId || ""}
-            email={userEmail}
-            totalAnswers={totalAnswers}
-            onExit={() => navigate("/")}
-          />
-        </div>
-      )}
+      <div className="flex justify-end pt-2 pb-4">
+        <SaveAndExitButton
+          diagnosticId={diagnosticId || ""}
+          email={userEmail || "usuario@exemplo.com"}
+          totalAnswers={totalAnswers}
+          onExit={() => navigate("/")}
+        />
+      </div>
 
       {submitError && (
         <p className="text-sm text-destructive bg-destructive/10 p-3 rounded mb-4">
