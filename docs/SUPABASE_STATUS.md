@@ -38,9 +38,9 @@
 | 9 | `20260216000003_diagnostics_current_phase_questions.sql` | Campo `current_phase_questions` | ⚠️ Verificar | Verificar se existe |
 | 10 | `20260217000001_knowledge_chunks_v2.sql` | Schema V2: renomeia `sintomas` → `sintomas_comportamentais` | ⚠️ Verificar | **Aplicar se ainda não** |
 | 11 | `20260217000002_diagnostic_results_v2.sql` | Campos V2: vetor_estado, memorias_vermelhas, etc | ⚠️ Verificar | **Aplicar se ainda não** |
-| 12 | `20260217000002_analytics_tables.sql` | Tabelas de analytics (events, metrics, views) | ⚠️ Verificar | **Aplicar se quiser dashboard** |
-| 13 | `20260217000003_diagnostics_adjust.sql` | Ajustes em diagnostics | ⚠️ Verificar | Verificar se existe |
-| 14 | `20260217000004_metrics_views_extended.sql` | Views estendidas (tempo médio, áreas, abandono) | ⚠️ Opcional | **Aplicar para analytics completo** |
+| 12 | `20260217000003_diagnostics_adjust.sql` | Ajustes em diagnostics | ⚠️ Verificar | Verificar se existe |
+| 13 | `20260217000004_metrics_views_extended.sql` | Views estendidas (tempo médio, áreas, abandono) | ⚠️ Opcional | **Aplicar para analytics completo** |
+| 14 | `20260217000005_analytics_tables.sql` | Tabelas de analytics (events, metrics, views) | ⚠️ Verificar | **Aplicar se quiser dashboard** |
 
 ---
 
