@@ -50,7 +50,7 @@
 -- SCHEMA COMPLETO - NARA (Diagnóstico de Transformação Narrativa)
 -- ====
 -- Database: Supabase (PostgreSQL 15+)
--- Versão: 1.0
+-- Versão: 2.0
 -- ====
 
 -- Habilitar extensões
@@ -156,11 +156,14 @@ CREATE TABLE public.diagnostics (
     consent_privacy BOOLEAN DEFAULT FALSE,
     consent_marketing BOOLEAN DEFAULT FALSE,
     
-    -- Scores calculados (JSONB para flexibilidade)
+    -- Scores calculados (JSONB para flexibilidade) — LEGACY (mantidos por compatibilidade V1)
     overall_score DECIMAL(3,1),
-    scores_by_area JSONB DEFAULT '{}',
+    scores_by_area JSONB DEFAULT '{}',           -- LEGACY: Substituído por análise qualitativa
     crisis_areas JSONB DEFAULT '[]',
     insights TEXT,
+    
+    -- Análise intermediária (V2)
+    analise_intermediaria JSONB,                  -- Armazena análise do analyzer (pré-RAG)
     
     -- URLs de arquivos gerados
     radar_chart_url TEXT,
@@ -301,9 +304,13 @@ CREATE TABLE public.knowledge_chunks (
     motor_motivacional TEXT[],          -- ['Necessidade', 'Valor', 'Desejo', 'Propósito']
     estagio_jornada TEXT[],             -- ['Germinar', 'Enraizar', ...]
     tipo_crise TEXT[],                  -- ['Identidade', 'Sentido', 'Execução', ...]
-    ponto_entrada TEXT,                 -- 'Simbólico', 'Cognitivo', 'Comportamental', ...
-    sintomas TEXT[],                    -- ['autossabotagem', 'paralisia', ...]
+    subtipo_crise TEXT,                 -- Ex: 'Identidade Herdada', 'Vazio Existencial'
+    ponto_entrada TEXT,                 -- 'Emocional', 'Simbólico', 'Comportamental', 'Existencial'
+    tipo_conteudo TEXT,                 -- 'Ponto de Entrada', 'Âncora Prática', 'Técnica de TCC', 'Conceito Metodológico', 'Exemplo de Caso'
+    dominio TEXT[],                     -- ['D1', 'D2', ..., 'D6'] - Domínios Temáticos
+    sintomas_comportamentais TEXT[],    -- ['autossabotagem', 'paralisia', ...] (renomeado de 'sintomas')
     tom_emocional TEXT,                 -- 'vergonha', 'indignação', 'apatia', ...
+    nivel_maturidade TEXT,              -- 'baixo', 'médio', 'alto'
     
     -- Métricas
     token_count INTEGER,
@@ -334,6 +341,9 @@ CREATE INDEX idx_chunks_motor ON knowledge_chunks USING GIN (motor_motivacional)
 CREATE INDEX idx_chunks_estagio ON knowledge_chunks USING GIN (estagio_jornada);
 CREATE INDEX idx_chunks_crise ON knowledge_chunks USING GIN (tipo_crise);
 CREATE INDEX idx_chunks_metadata ON knowledge_chunks USING GIN (metadata);
+CREATE INDEX idx_chunks_tipo_conteudo ON knowledge_chunks(tipo_conteudo);
+CREATE INDEX idx_chunks_dominio ON knowledge_chunks USING GIN (dominio);
+CREATE INDEX idx_chunks_version ON knowledge_chunks(version);
 ```
 
 ### Tabela: diagnostic_results
@@ -348,11 +358,17 @@ CREATE TABLE public.diagnostic_results (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     diagnostic_id UUID UNIQUE NOT NULL REFERENCES diagnostics(id) ON DELETE CASCADE,
     
-    -- Scores finais normalizados (0-10)
-    overall_score DECIMAL(3,1),
+    -- Scores finais normalizados (0-10) — LEGACY (mantidos por compatibilidade V1)
+    overall_score DECIMAL(3,1),                   -- LEGACY: Substituído por vetor_estado.estagio_jornada
     area_scores JSONB NOT NULL DEFAULT '{}',     -- {area_id: score}
     motor_scores JSONB NOT NULL DEFAULT '{}',    -- {motor_id: score}
     phase_identified TEXT,                       -- Fase da jornada detectada
+    
+    -- Vetor de Estado Qualitativo (V2)
+    vetor_estado JSONB,                          -- Diagnóstico qualitativo completo (motor_dominante, estagio_jornada, crise_raiz, etc.)
+    memorias_vermelhas TEXT[],                    -- Citações literais do usuário revelando conflitos
+    areas_silenciadas SMALLINT[],                -- Áreas não respondidas ou vagas (IDs 1-12)
+    ancoras_sugeridas TEXT[],                    -- Das 19 Âncoras Práticas da metodologia
     
     -- Diagnóstico M1 identificado
     motor_dominante TEXT,
@@ -366,7 +382,7 @@ CREATE TABLE public.diagnostic_results (
     executive_summary TEXT NOT NULL,              -- Resumo executivo
     detailed_analysis JSONB NOT NULL DEFAULT '{}',-- Análise por área
     recommendations JSONB NOT NULL DEFAULT '[]',  -- Recomendações
-    strengths TEXT[] DEFAULT '{}',               -- Pontos fortes
+    strengths TEXT[] DEFAULT '{}',               -- Pontos fortes (Capital Simbólico)
     opportunities TEXT[] DEFAULT '{}',           -- Oportunidades
     
     -- Metadados de geração
@@ -620,10 +636,12 @@ CREATE TRIGGER update_email_logs_updated_at
 ```json
 {
   "text": "Resposta textual do usuário...",
-  "scale": 4,
+  "scale": null,
   "words": 87
 }
 ```
+
+> **Nota V2:** Com a migração para perguntas 100% narrativas, o campo `scale` será sempre `null` em novos diagnósticos. Mantido por compatibilidade com diagnósticos V1.
 
 #### knowledge_chunks.metadata
 ```json
@@ -632,13 +650,14 @@ CREATE TRIGGER update_email_logs_updated_at
   "estagio_jornada": ["Germinar", "Enraizar"],
   "tipo_crise": "Identidade",
   "subtipo_crise": "Identidade Herdada",
-  "dominio": "D1",
+  "dominio": ["D1", "D2"],
   "ponto_entrada": "Simbólico",
+  "tipo_conteudo": "Conceito Metodológico",
   "sintomas_comportamentais": ["autossabotagem", "paralisia decisória"],
   "tom_emocional_base": "vergonha",
   "nivel_maturidade": "baixo",
   "source": "metodologia_phellipe_oliveira",
-  "version": "1.0"
+  "version": "2.0"
 }
 ```
 
@@ -683,6 +702,7 @@ BEGIN
         1 - (k.embedding <=> query_embedding) AS similarity
     FROM knowledge_chunks k
     WHERE k.is_active = TRUE
+        AND k.version = 2
         AND 1 - (k.embedding <=> query_embedding) > match_threshold
         AND (filter_chapter IS NULL OR k.chapter = filter_chapter)
         AND (filter_motor IS NULL OR k.motor_motivacional && filter_motor)
@@ -975,6 +995,14 @@ CREATE POLICY "Users can create answers"
 | **intervencao** | Estratégias de intervenção | ~24 (2 por área) |
 | **perguntas** | Templates de perguntas | ~60 (5 por área) |
 | **exemplos** | Casos e padrões | ~50 |
+| **ancora_pratica** | As 19 Âncoras Práticas | ~19 |
+| **ponto_entrada** | Os 4 Pontos de Entrada | ~4 |
+| **tecnica_tcc** | Técnicas de TCC | ~10 |
+| **conceito** | Conceitos Metodológicos | ~15 |
+
+**Novos tipos de conteúdo (V2):** Ponto de Entrada, Âncora Prática, Técnica de TCC, Conceito Metodológico, Exemplo de Caso
+
+**Total de chunks V2**: ~35 chunks estruturados (vs. ~15 V1)
 
 ### Estrutura de um Chunk Completo
 
@@ -990,23 +1018,28 @@ CREATE POLICY "Users can create answers"
     "estagio_jornada": ["Germinar", "Desenvolver"],
     "tipo_crise": ["Execução"],
     "subtipo_crise": "Falta de vitalidade",
-    "dominio": "D3",
+    "dominio": ["D3"],
     "ponto_entrada": "Comportamental",
+    "tipo_conteudo": "Conceito Metodológico",
     "sintomas_comportamentais": ["exaustão", "procrastinação"],
     "tom_emocional_base": "apatia",
     "nivel_maturidade": "baixo",
     "source": "metodologia_phellipe_oliveira",
-    "version": "1.0"
+    "version": "2.0"
   },
   "motor_motivacional": ["Necessidade", "Desejo"],
   "estagio_jornada": ["Germinar", "Desenvolver"],
   "tipo_crise": ["Execução"],
+  "subtipo_crise": "Falta de vitalidade",
   "ponto_entrada": "Comportamental",
-  "sintomas": ["exaustão", "procrastinação"],
+  "tipo_conteudo": "Conceito Metodológico",
+  "dominio": ["D3"],
+  "sintomas_comportamentais": ["exaustão", "procrastinação"],
   "tom_emocional": "apatia",
+  "nivel_maturidade": "baixo",
   "token_count": 342,
   "is_active": true,
-  "version": 1
+  "version": 2
 }
 ```
 
@@ -1110,8 +1143,3 @@ WHERE routine_schema = 'public' AND routine_type = 'FUNCTION';
 ```
 
 ---
-
-**Referências Cruzadas:**
-- Fundamentos metodológicos: [01_FUNDAMENTOS.md](./01_FUNDAMENTOS.md)
-- Prompts que usam este schema: [03_PROMPTS_CONHECIMENTO.md](./03_PROMPTS_CONHECIMENTO.md)
-- Endpoints que acessam estas tabelas: [04_BACKEND_API.md](./04_BACKEND_API.md)

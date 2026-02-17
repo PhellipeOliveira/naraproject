@@ -17,7 +17,7 @@ async def retrieve_relevant_chunks(
     filter_crise: Optional[list[str]] = None,
     similarity_threshold: float | None = None,
     filter_chunk_strategy: Optional[str] = "semantic",
-    filter_version: int = 2,  # Novo: filtrar por version (default=2)
+    filter_version: int = 1,  # Default version=1 (docs-rag + BASE_METODOLOGICA)
 ) -> list[dict[str, Any]]:
     """
     Busca chunks relevantes para uma query usando similaridade semântica.

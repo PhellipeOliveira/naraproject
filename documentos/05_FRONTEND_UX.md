@@ -230,8 +230,8 @@ nara-frontend/
 │   │   │   └── LoadingScreen.tsx
 │   │   │
 │   │   ├── diagnostic/                 # Componentes do fluxo de diagnóstico
-│   │   │   ├── QuestionCard.tsx        # Card de pergunta individual
-│   │   │   ├── ScaleInput.tsx          # Input de escala 0-5
+│   │   │   ├── QuestionCard.tsx        # Card de pergunta individual (V2: simplificado, sem escala)
+│   │   │   ├── ScaleInput.tsx          # LEGACY: Input de escala 0-5 (não usado em V2)
 │   │   │   ├── TextInput.tsx           # Textarea com contador
 │   │   │   ├── ProgressBar.tsx         # Barra de progresso multi-level
 │   │   │   ├── PhaseIndicator.tsx      # Indicador de fase atual
@@ -241,14 +241,18 @@ nara-frontend/
 │   │   │   ├── TransitionScreen.tsx    # Tela de transição entre fases
 │   │   │   └── CelebrationScreen.tsx   # Tela de celebração (confete)
 │   │   │
-│   │   ├── result/                     # Componentes da tela de resultado
+│   │   ├── result/                     # Componentes da tela de resultado (V2: redesenhada)
 │   │   │   ├── RadarChart.tsx          # Gráfico radar das 12 áreas
 │   │   │   ├── RadarChartMini.tsx      # Versão compacta do radar
-│   │   │   ├── AreaCard.tsx            # Card de área individual
-│   │   │   ├── AreaCardExpanded.tsx    # Card expandido com detalhes
-│   │   │   ├── ScoreDisplay.tsx        # Display do score geral
+│   │   │   ├── VetorEstadoGrid.tsx     # V2: Grid de cards do Vetor de Estado
+│   │   │   ├── MemoriasVermelhas.tsx   # V2: Citações destacadas com borda vermelha
+│   │   │   ├── AncorasSugeridas.tsx    # V2: Lista de Âncoras Práticas sugeridas
+│   │   │   ├── CapitalSimbolico.tsx    # V2: Recursos identificados (antes "Pontos Fortes")
+│   │   │   ├── AreaCard.tsx            # Card de área individual (status visual)
+│   │   │   ├── AreaCardExpanded.tsx    # Card expandido com detalhes + Key Insight
+│   │   │   ├── ScoreDisplay.tsx        # Display do score geral (legacy, detecta vetor_estado)
+│   │   │   ├── PlanoAssuncao.tsx       # V2: Plano de Assunção Intencional
 │   │   │   ├── InsightSection.tsx      # Seção de insights
-│   │   │   ├── RecommendationCard.tsx  # Card de recomendação
 │   │   │   ├── ShareModal.tsx          # Modal de compartilhamento
 │   │   │   └── CreateAccountBanner.tsx # Banner para criar conta
 │   │   │
@@ -637,10 +641,9 @@ export type DiagnosticStatus =
   | 'failed';
 
 export type QuestionType = 
-  | 'scale_and_text' 
-  | 'text_only' 
-  | 'scale_only' 
-  | 'multiple_choice';
+  | 'open_long' 
+  | 'open_short';
+  // V2: Perguntas 100% narrativas — tipos 'scale_and_text', 'scale_only' e 'multiple_choice' removidos
 
 export type LifeArea =
   | 'Saúde Física'
@@ -662,16 +665,15 @@ export interface Question {
   area: LifeArea | string;
   type: QuestionType;
   phase: number;
-  scaleRange?: [number, number];
   minWords: number;
   maxWords?: number;
   contextMessage?: string;
-  options?: string[];
+  follow_up_hint?: string;  // V2: Contexto para entender a resposta
 }
 
 export interface AnswerValue {
   text: string;
-  scale: number | null;
+  scale: number | null;  // V2: Sempre null (perguntas 100% narrativas). Mantido por compatibilidade V1.
   words: number;
 }
 
@@ -713,9 +715,29 @@ export interface EligibilityCriteria {
   };
 }
 
+export interface VetorEstado {
+  motor_dominante: string;
+  motor_secundario: string;
+  estagio_jornada: string;
+  crise_raiz: string;
+  crises_derivadas: string[];
+  ponto_entrada_ideal: string;
+  dominios_alavanca: string[];
+  tom_emocional: string;
+  risco_principal: string;
+  necessidade_atual: string;
+}
+
 export interface DiagnosticResult {
   diagnosticId: string;
   overallScore: number;
+  // V2: Vetor de Estado Qualitativo
+  vetorEstado?: VetorEstado;
+  memoriasVermelhas?: string[];
+  areasSilenciadas?: number[];
+  ancorasSugeridas?: string[];
+  capitalSimbolico?: string[];
+  // Legacy (mantidos por compatibilidade V1)
   scoresByArea: Record<string, number>;
   crisisAreas: Array<{ area: string; score: number }>;
   balancedAreas: Array<{ area: string; score: number }>;
@@ -2242,10 +2264,10 @@ export function QuestionCard({
   canGoBack = true,
 }: QuestionCardProps) {
   const [text, setText] = useState(initialValue?.text || '');
-  const [scale, setScale] = useState<number | null>(initialValue?.scale ?? null);
   const [wordCount, setWordCount] = useState(initialValue?.words || 0);
   const [startTime] = useState(Date.now());
   const [hasInteracted, setHasInteracted] = useState(false);
+  // V2: Perguntas 100% narrativas — sem lógica de escala
 
   // Atualizar contagem de palavras
   useEffect(() => {
@@ -2253,12 +2275,10 @@ export function QuestionCard({
     setWordCount(words);
   }, [text]);
 
-  // Validação
+  // Validação (V2: apenas texto narrativo, sem escala)
   const minWords = question.minWords || 10;
   const isTextValid = wordCount >= minWords;
-  const isScaleValid =
-    question.type === 'text_only' || scale !== null;
-  const isValid = isTextValid && isScaleValid;
+  const isValid = isTextValid;
 
   const handleSubmit = () => {
     if (!isValid) return;
@@ -2267,7 +2287,7 @@ export function QuestionCard({
 
     onSubmit({
       text,
-      scale,
+      scale: null, // V2: Perguntas 100% narrativas
       words: wordCount,
     });
   };
@@ -2317,18 +2337,13 @@ export function QuestionCard({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Input de escala (se aplicável) */}
-          {question.type !== 'text_only' && (
-            <ScaleInput
-              value={scale}
-              onChange={(value) => {
-                setScale(value);
-                setHasInteracted(true);
-              }}
-              min={question.scaleRange?.[0] || 0}
-              max={question.scaleRange?.[1] || 5}
-              labels={['Discordo totalmente', 'Concordo totalmente']}
-            />
+          {/* V2: Perguntas 100% narrativas — ScaleInput removido */}
+
+          {/* follow_up_hint (V2) */}
+          {question.follow_up_hint && (
+            <p className="text-xs text-gray-400 italic mb-2">
+              {question.follow_up_hint}
+            </p>
           )}
 
           {/* Input de texto */}
@@ -2406,9 +2421,6 @@ export function QuestionCard({
                 <span>
                   Mínimo de {minWords} palavras ({wordCount}/{minWords})
                 </span>
-              )}
-              {!isScaleValid && (
-                <span className="ml-2">• Selecione uma opção na escala</span>
               )}
             </motion.div>
           )}
@@ -2938,13 +2950,13 @@ export const createDiagnosticSchema = z.object({
   consentMarketing: z.boolean().default(false),
 });
 
-// Schema para resposta
+// Schema para resposta (V2: scale sempre null — perguntas 100% narrativas)
 export const answerValueSchema = z.object({
   text: z
     .string()
     .min(1, 'Resposta é obrigatória')
     .max(5000, 'Resposta muito longa'),
-  scale: z.number().min(0).max(5).nullable(),
+  scale: z.number().min(0).max(5).nullable(),  // LEGACY V1: Sempre null em V2
   words: z.number().min(0),
 });
 
@@ -3364,8 +3376,8 @@ export function WelcomeForm({ onSubmit, isSubmitting }: WelcomeFormProps) {
 │  └────────────────────────────────────────────────────────┘ │
 │                                                              │
 │  Se sua vida hoje fosse um livro, qual seria o título       │
-│  do capítulo atual? De 0 a 5, o quanto você se sente        │
-│  de fato o protagonista da sua própria história?            │
+│  do capítulo atual? O quanto você se sente de fato o        │
+│  protagonista da sua própria história?                      │
 │                                                              │
 │  ─────────────────────────────────────────────────────────  │
 │                                                              │
@@ -4630,6 +4642,3 @@ describe('diagnosticStore', () => {
 - [Lighthouse](https://developer.chrome.com/docs/lighthouse/) (performance)
 
 ---
-
-*Documento gerado para o Projeto NARA - Diagnóstico das 12 Áreas Estruturantes*
-*Versão: 2.0 | Última atualização: Fevereiro 2026*

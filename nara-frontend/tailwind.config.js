@@ -104,8 +104,10 @@ export default {
         'slide-out-left': 'slideOutLeft 0.3s ease-out',
         'scale-in': 'scaleIn 0.2s ease-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'bounce-subtle': 'bounceSubtle 1s infinite',
         'spin-slow': 'spin 3s linear infinite',
+        'shake': 'shake 0.5s ease-in-out',
       },
       keyframes: {
         fadeIn: {
@@ -139,6 +141,11 @@ export default {
         bounceSubtle: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-5px)' },
+        },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-5px)' },
+          '20%, 40%, 60%, 80%': { transform: 'translateX(5px)' },
         },
       },
       transitionDuration: {

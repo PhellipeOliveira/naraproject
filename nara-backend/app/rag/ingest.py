@@ -342,9 +342,10 @@ def chunks_to_knowledge_rows(
     """
     Converte lista de chunks + embeddings em linhas para insert em knowledge_chunks.
 
-    Mantém compatibilidade com o schema: chapter, section, content, embedding,
-    metadata, motor_motivacional, estagio_jornada, tipo_crise, ponto_entrada, sintomas,
-    tom_emocional, is_active, version.
+    Compatível com schema V2: chapter, section, content, embedding, metadata,
+    motor_motivacional, estagio_jornada, tipo_crise, ponto_entrada,
+    sintomas_comportamentais (renomeado de sintomas), tom_emocional,
+    nivel_maturidade, subtipo_crise, tipo_conteudo, dominio, is_active, version.
     """
     rows: list[dict[str, Any]] = []
     for i, ch in enumerate(chunks):
@@ -361,8 +362,12 @@ def chunks_to_knowledge_rows(
             "estagio_jornada": None,
             "tipo_crise": None,
             "ponto_entrada": None,
-            "sintomas": None,
+            "sintomas_comportamentais": None,  # Renomeado de sintomas na V2
             "tom_emocional": None,
+            "nivel_maturidade": None,  # Novo campo V2
+            "subtipo_crise": None,  # Novo campo V2
+            "tipo_conteudo": None,  # Novo campo V2
+            "dominio": None,  # Novo campo V2
             "is_active": True,
             "version": 1,
         }

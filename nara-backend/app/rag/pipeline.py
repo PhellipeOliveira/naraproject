@@ -268,7 +268,17 @@ class NaraDiagnosticPipeline:
             if areas_count.get(area, 0) < 3
         ]
 
+        # Análise contextual para enriquecer geração de perguntas
+        logger.info("Analisando contexto das respostas para próxima fase")
+        context_analysis = await analyze_answers_context(answers, user_profile=None)
+        
         patterns = self._identify_patterns(answers)
+        # Enriquecer com insights do analyzer
+        if context_analysis.get("motor_dominante"):
+            patterns.append(f"Motor dominante: {context_analysis['motor_dominante']}")
+        if context_analysis.get("clusters_identificados"):
+            patterns.append(f"Clusters: {', '.join(context_analysis['clusters_identificados'][:2])}")
+        
         next_phase = diagnostic["current_phase"] + 1
 
         rag_context = await retrieve_for_question_generation(
@@ -278,7 +288,7 @@ class NaraDiagnosticPipeline:
         )
         if not rag_context or not rag_context.strip():
             logger.warning(
-                "RAG context empty for phase %s. Ensure knowledge_chunks has rows with embeddings and run scripts/seed_knowledge_chunks.",
+                "RAG context empty for phase %s. Ensure knowledge_chunks has rows with embeddings.",
                 next_phase,
             )
 
@@ -468,26 +478,29 @@ class NaraDiagnosticPipeline:
         ).execute()
 
         try:
-            # Análise contextual das respostas (Memórias Vermelhas, silêncios, etc.)
+            # Análise contextual das respostas (Motor, Clusters, Âncoras, etc.)
             logger.info("Analisando contexto das respostas para diagnostic %s", diagnostic_id)
-            context_analysis = analyze_answers_context(answers)
+            context_analysis = await analyze_answers_context(answers, user_profile=None)
             
             # Manter scores por compatibilidade (LEGACY - usar vetor_estado)
             scores_by_area = await self._calculate_area_scores(diagnostic_id)
             
-            # Usar analyzer para identificar padrões (substitui _identify_patterns)
-            patterns = context_analysis.get("padroes_repetidos", [])
-            if context_analysis.get("barreiras_identificadas"):
-                patterns.extend(context_analysis["barreiras_identificadas"])
+            # Usar analyzer para identificar padrões (complementa _identify_patterns)
+            patterns = self._identify_patterns(answers)
+            if context_analysis.get("sinais_conflito"):
+                patterns.extend(context_analysis["sinais_conflito"])
 
             # Salvar análise intermediária no diagnóstico
             supabase.table("diagnostics").update({
                 "analise_intermediaria": {
-                    "padroes": patterns,
+                    "motor_dominante": context_analysis.get("motor_dominante"),
+                    "clusters_identificados": context_analysis.get("clusters_identificados", []),
+                    "pontos_entrada": context_analysis.get("pontos_entrada", []),
+                    "ancoras_sugeridas": context_analysis.get("ancoras_sugeridas", []),
+                    "nivel_maturidade": context_analysis.get("nivel_maturidade"),
                     "tom_emocional": context_analysis.get("tom_emocional"),
-                    "areas_silenciadas": context_analysis.get("areas_silenciadas", []),
-                    "palavras_recorrentes": context_analysis.get("palavras_recorrentes", []),
-                    "ponto_entrada": context_analysis.get("ponto_entrada"),
+                    "areas_criticas": context_analysis.get("areas_criticas", []),
+                    "padroes": patterns,
                 }
             }).eq("id", diagnostic_id).execute()
 
@@ -495,7 +508,6 @@ class NaraDiagnosticPipeline:
                 diagnostic_id=diagnostic_id,
                 scores_by_area=scores_by_area,
                 all_responses=answers,
-                context_analysis=context_analysis,  # Adicionar contexto enriquecido
             )
 
             report = await generate_final_report(

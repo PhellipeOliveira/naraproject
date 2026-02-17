@@ -1,403 +1,253 @@
 """
-Análise de contexto das respostas do usuário.
-Extrai Memórias Vermelhas, silêncios, padrões e tom emocional.
+Análise contextual das respostas do diagnóstico.
+Conforme 01_BASE_METODOLOGICA — Protocolo de Diagnóstico Rápido e Clusters de Crise.
+
+Identifica:
+- Motor motivacional dominante (Necessidade, Valor, Desejo, Propósito)
+- Clusters de crise presentes
+- Pontos de entrada para intervenção
+- Nível de maturidade narrativa
+- Âncoras práticas relevantes
 """
 import logging
-import re
-from collections import Counter
-from typing import Any
+from typing import Any, Optional
+
+from app.config import settings
+from app.core.constants import (
+    CLUSTERS_CRISE,
+    MOTORES,
+    PONTOS_ENTRADA,
+    ANCORAS_PRATICAS,
+)
+from app.rag.retriever import retrieve_relevant_chunks
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
-
-# Palavras-chave para identificação de padrões
-PALAVRAS_AUTOSSABOTAGEM = [
-    "sempre",
-    "nunca",
-    "não consigo",
-    "impossível",
-    "fracasso",
-    "não sou capaz",
-    "vou falhar",
-    "não mereço",
-    "não tenho",
-    "não aguento",
-]
-
-PALAVRAS_EMOCAO = {
-    "vergonha": [
-        "vergonha",
-        "envergonhado",
-        "humilhado",
-        "constrangido",
-        "inadequado",
-        "inferior",
-    ],
-    "indignação": [
-        "injusto",
-        "traído",
-        "enganado",
-        "usado",
-        "desvalorizado",
-        "desrespeitado",
-        "ignorado",
-    ],
-    "apatia": [
-        "vazio",
-        "indiferente",
-        "tanto faz",
-        "sem sentido",
-        "apático",
-        "desanimado",
-        "sem energia",
-    ],
-    "urgência": [
-        "urgente",
-        "ansioso",
-        "preocupado",
-        "estressado",
-        "tenso",
-        "pressionado",
-        "correndo",
-        "atrasado",
-    ],
-    "tristeza": [
-        "triste",
-        "deprimido",
-        "melancólico",
-        "sozinho",
-        "abandonado",
-        "perdido",
-        "desesperançado",
-    ],
-}
-
-PALAVRAS_CRISE = {
-    "exaustão": ["cansado", "exausto", "esgotado", "sem energia", "fadiga"],
-    "dor": ["dor", "sofrimento", "angústia", "aflição"],
-    "conflito": ["conflito", "briga", "desentendimento", "tensão", "desacordo"],
-}
-
-# Áreas do Círculo Narrativo (índice 1-12)
-AREAS = [
-    "Saúde Física",
-    "Saúde Mental",
-    "Saúde Espiritual",
-    "Vida Pessoal",
-    "Vida Amorosa",
-    "Vida Familiar",
-    "Vida Social",
-    "Vida Profissional",
-    "Finanças",
-    "Educação",
-    "Inovação",
-    "Lazer",
-]
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
-def analyze_answers_context(responses: list[dict[str, Any]]) -> dict[str, Any]:
+async def analyze_answers_context(
+    responses: list[dict[str, Any]],
+    user_profile: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
     """
-    Analisa o contexto das respostas do usuário.
+    Analisa respostas para identificar motor, clusters de crise,
+    pontos de entrada e âncoras práticas relevantes.
     
     Args:
-        responses: Lista de respostas com question_area, answer_value, etc.
-    
+        responses: Lista de respostas do usuário
+        user_profile: Perfil do usuário (opcional)
+        
     Returns:
-        Dict com análise contextual:
-        - memorias_vermelhas: Citações literais que revelam conflitos
-        - barreiras_identificadas: Padrões de autossabotagem
-        - capital_simbolico: Recursos e forças do usuário
-        - tom_emocional: Tom dominante (vergonha, indignação, etc.)
-        - areas_criticas: IDs das áreas com sinais de crise
-        - areas_silenciadas: IDs das áreas não respondidas ou vagas
-        - padroes_repetidos: Temas recorrentes em áreas diferentes
-        - ponto_entrada: Porta de intervenção predominante
-        - palavras_recorrentes: Palavras mais frequentes
+        {
+            "motor_dominante": str,
+            "motors_scores": dict,
+            "clusters_identificados": list[str],
+            "pontos_entrada": list[str],
+            "ancoras_sugeridas": list[str],
+            "nivel_maturidade": str,
+            "tom_emocional": str,
+            "areas_criticas": list[str],
+            "sinais_conflito": list[str]
+        }
     """
-    logger.info("Analisando contexto de %d respostas...", len(responses))
+    if not responses:
+        return _empty_analysis()
     
-    # Consolidar todos os textos
-    all_texts = []
-    areas_respondidas = {}  # area_id -> lista de textos
-    areas_com_resposta = set()
+    # Concatenar respostas para análise
+    response_texts = "\n\n".join([
+        f"Área: {r.get('question_area', 'Geral')}\n"
+        f"Pergunta: {r.get('question_text', '')}\n"
+        f"Resposta: {r.get('answer_value', {}).get('text', '')}"
+        for r in responses[-20:]  # Últimas 20 respostas
+        if r.get('answer_value', {}).get('text')
+    ])
     
-    for r in responses:
-        av = r.get("answer_value") or {}
-        text = av.get("text", "").strip()
-        area = r.get("question_area", "Geral")
-        
-        # Mapear área para ID (1-12)
-        try:
-            area_id = AREAS.index(area) + 1 if area in AREAS else 0
-        except ValueError:
-            area_id = 0
-        
-        if area_id > 0:
-            areas_com_resposta.add(area_id)
-            if area_id not in areas_respondidas:
-                areas_respondidas[area_id] = []
-            if text:
-                areas_respondidas[area_id].append(text)
-        
-        if text:
-            all_texts.append(text)
+    if not response_texts:
+        return _empty_analysis()
     
-    full_text = " ".join(all_texts).lower()
-    
-    # 1. DETECTAR MEMÓRIAS VERMELHAS
-    memorias_vermelhas = _extract_memorias_vermelhas(responses)
-    
-    # 2. IDENTIFICAR BARREIRAS (AUTOSSABOTAGEM)
-    barreiras = _identify_barreiras(full_text)
-    
-    # 3. IDENTIFICAR CAPITAL SIMBÓLICO (RECURSOS)
-    capital_simbolico = _identify_capital_simbolico(all_texts)
-    
-    # 4. DETECTAR TOM EMOCIONAL DOMINANTE
-    tom_emocional = _detect_tom_emocional(full_text)
-    
-    # 5. IDENTIFICAR ÁREAS CRÍTICAS
-    areas_criticas = _identify_areas_criticas(areas_respondidas)
-    
-    # 6. DETECTAR ÁREAS SILENCIADAS
-    areas_silenciadas = _identify_areas_silenciadas(areas_com_resposta)
-    
-    # 7. IDENTIFICAR PADRÕES REPETIDOS
-    padroes_repetidos = _identify_padroes_repetidos(areas_respondidas)
-    
-    # 8. DETERMINAR PONTO DE ENTRADA
-    ponto_entrada = _determine_ponto_entrada(full_text, memorias_vermelhas)
-    
-    # 9. EXTRAIR PALAVRAS RECORRENTES
-    palavras_recorrentes = _extract_palavras_recorrentes(full_text)
-    
-    result = {
-        "memorias_vermelhas": memorias_vermelhas,
-        "barreiras_identificadas": barreiras,
-        "capital_simbolico": capital_simbolico,
-        "tom_emocional": tom_emocional,
-        "areas_criticas": areas_criticas,
-        "areas_silenciadas": areas_silenciadas,
-        "padroes_repetidos": padroes_repetidos,
-        "ponto_entrada": ponto_entrada,
-        "palavras_recorrentes": palavras_recorrentes,
-    }
-    
-    logger.info(
-        "Análise concluída: %d memórias vermelhas, %d áreas críticas, tom=%s, ponto_entrada=%s",
-        len(memorias_vermelhas),
-        len(areas_criticas),
-        tom_emocional,
-        ponto_entrada,
+    # Buscar contexto RAG relevante
+    rag_chunks = await retrieve_relevant_chunks(
+        query=response_texts[:500],  # Resumo das respostas
+        top_k=5,
+        filter_chunk_strategy="semantic"
     )
     
-    return result
-
-
-def _extract_memorias_vermelhas(responses: list[dict]) -> list[str]:
-    """Extrai frases que revelam conflitos não dominados."""
-    memorias = []
+    rag_context = "\n\n".join([
+        f"**{c.get('chapter')}**: {c.get('content', '')[:200]}"
+        for c in rag_chunks[:3]
+    ])
     
-    for r in responses:
-        av = r.get("answer_value") or {}
-        text = av.get("text", "").strip()
+    # Montar prompt de análise
+    prompt = _build_analysis_prompt(response_texts, rag_context)
+    
+    # Chamar LLM
+    try:
+        response = await client.chat.completions.create(
+            model=settings.OPENAI_MODEL_ANALYSIS,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Você é um analista especializado em Transformação Narrativa."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
+            response_format={"type": "json_object"}
+        )
         
-        if not text:
-            continue
+        import json
+        analysis = json.loads(response.choices[0].message.content)
+        logger.info(f"Análise contextual concluída: motor={analysis.get('motor_dominante')}")
+        return analysis
         
-        # Buscar frases que indicam conflito
-        # Frases com "não consigo", "sempre", "nunca", "sinto que"
-        patterns = [
-            r"não consigo [^.!?]{10,}[.!?]",
-            r"sempre [^.!?]{10,}[.!?]",
-            r"nunca [^.!?]{10,}[.!?]",
-            r"sinto que [^.!?]{10,}[.!?]",
-            r"tenho medo [^.!?]{10,}[.!?]",
-            r"me sinto [^.!?]{10,}[.!?]",
-            r"parece que [^.!?]{10,}[.!?]",
-        ]
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            for match in matches:
-                frase = match.strip()
-                if len(frase) > 20 and frase not in memorias:  # Evitar duplicatas
-                    memorias.append(frase)
-    
-    return memorias[:10]  # Limitar a 10 mais importantes
+    except Exception as e:
+        logger.error(f"Erro na análise contextual: {e}")
+        return _empty_analysis()
 
 
-def _identify_barreiras(text: str) -> list[str]:
-    """Identifica padrões de autossabotagem."""
-    barreiras = []
+def _build_analysis_prompt(response_texts: str, rag_context: str) -> str:
+    """Monta o prompt para análise contextual."""
+    motors_desc = "\n".join([f"- **{k}**: {v}" for k, v in MOTORES.items()])
+    clusters_desc = "\n".join([f"- **{k}**: {', '.join(v['sinais'])}" for k, v in CLUSTERS_CRISE.items()])
+    pontos_desc = "\n".join([f"- **{k}**: {v}" for k, v in PONTOS_ENTRADA.items()])
     
-    for palavra in PALAVRAS_AUTOSSABOTAGEM:
-        if palavra in text:
-            barreiras.append(f"Padrão de linguagem: '{palavra}'")
-    
-    # Buscar padrões específicos
-    if "não tenho tempo" in text:
-        barreiras.append("Falta de priorização (não tenho tempo)")
-    if "quando" in text and ("acalmar" in text or "melhor" in text):
-        barreiras.append("Adiamento condicional (quando as coisas...)")
-    if "sempre foi assim" in text or "minha família" in text:
-        barreiras.append("Identidades Herdadas")
-    
-    return list(set(barreiras))  # Remover duplicatas
+    prompt = f"""
+Analise as respostas do usuário e identifique:
+
+## FRAMEWORK METODOLÓGICO
+
+### 4 MOTORES MOTIVACIONAIS:
+{motors_desc}
+
+### CLUSTERS DE CRISE:
+{clusters_desc}
+
+### PONTOS DE ENTRADA (Portas de Intervenção):
+{pontos_desc}
+
+### NÍVEIS DE MATURIDADE NARRATIVA:
+- **Baixo**: Não reconhece padrões, culpa externa
+- **Médio**: Reconhece padrões mas não age consistentemente
+- **Alto**: Reconhece, age e busca transformação intencional
+
+## RESPOSTAS DO USUÁRIO:
+{response_texts}
+
+## CONTEXTO METODOLÓGICO (RAG):
+{rag_context}
+
+## TAREFA:
+Identifique:
+1. **Motor Dominante**: Qual dos 4 motores impulsiona mais este usuário?
+2. **Clusters Identificados**: Quais clusters de crise estão presentes? (máximo 3)
+3. **Pontos de Entrada**: Quais portas de intervenção são mais evidentes?
+4. **Nível de Maturidade**: Baixo, Médio ou Alto
+5. **Tom Emocional**: frustração, esperança, confusão, determinação, etc
+6. **Áreas Críticas**: Quais das 12 áreas estão em maior conflito (M1)?
+7. **Sinais de Conflito**: Padrões específicos detectados
+8. **Âncoras Sugeridas**: Das 19 âncoras práticas, quais 3-5 são mais relevantes?
+
+Lista das 19 Âncoras: {', '.join(ANCORAS_PRATICAS)}
+
+Retorne JSON estrito:
+{{
+  "motor_dominante": "Necessidade|Valor|Desejo|Propósito",
+  "motors_scores": {{"Necessidade": 0-10, "Valor": 0-10, "Desejo": 0-10, "Propósito": 0-10}},
+  "clusters_identificados": ["Cluster1", "Cluster2"],
+  "pontos_entrada": ["Emocional", "Simbólico", "Comportamental", "Existencial"],
+  "ancoras_sugeridas": ["Âncora1", "Âncora2", "Âncora3"],
+  "nivel_maturidade": "Baixo|Médio|Alto",
+  "tom_emocional": "descrição breve",
+  "areas_criticas": ["Área1", "Área2"],
+  "sinais_conflito": ["sinal 1", "sinal 2"],
+  "justificativa_motor": "Breve explicação do motor dominante",
+  "justificativa_clusters": "Breve explicação dos clusters"
+}}
+"""
+    return prompt
 
 
-def _identify_capital_simbolico(texts: list[str]) -> list[str]:
-    """Identifica recursos e forças do usuário."""
-    capital = []
-    
-    # Palavras positivas que indicam recursos
-    palavras_positivas = [
-        "consigo",
-        "capaz",
-        "conquista",
-        "orgulho",
-        "realização",
-        "aprendizado",
-        "crescimento",
-        "superação",
-        "força",
-    ]
-    
-    for text in texts:
-        text_lower = text.lower()
-        for palavra in palavras_positivas:
-            if palavra in text_lower:
-                # Extrair sentença que contém a palavra
-                sentences = text.split(".")
-                for sentence in sentences:
-                    if palavra in sentence.lower() and sentence.strip():
-                        capital.append(sentence.strip()[:100])  # Limitar tamanho
-                        break
-    
-    return list(set(capital))[:5]  # Top 5 recursos
+def _empty_analysis() -> dict[str, Any]:
+    """Retorna análise vazia quando não há dados suficientes."""
+    return {
+        "motor_dominante": "Necessidade",
+        "motors_scores": {"Necessidade": 5, "Valor": 5, "Desejo": 5, "Propósito": 5},
+        "clusters_identificados": [],
+        "pontos_entrada": [],
+        "ancoras_sugeridas": [],
+        "nivel_maturidade": "Médio",
+        "tom_emocional": "neutro",
+        "areas_criticas": [],
+        "sinais_conflito": [],
+        "justificativa_motor": "Dados insuficientes para análise",
+        "justificativa_clusters": "Dados insuficientes para análise"
+    }
 
 
-def _detect_tom_emocional(text: str) -> str:
-    """Detecta o tom emocional dominante."""
+async def extract_emotional_tone(text: str) -> str:
+    """
+    Extrai o tom emocional de um texto.
+    
+    Returns:
+        Tom emocional: frustração, esperança, confusão, determinação, etc
+    """
+    if not text or len(text) < 50:
+        return "neutro"
+    
+    # Palavras-chave para análise rápida
+    tone_keywords = {
+        "frustração": ["não aguento", "cansado", "difícil", "impossível", "frustrad"],
+        "esperança": ["quero", "sonho", "espero", "desejo", "vou conseguir"],
+        "confusão": ["não sei", "confuso", "perdido", "dúvida", "incerto"],
+        "determinação": ["vou", "vou fazer", "decidido", "compromisso", "foco"],
+    }
+    
+    text_lower = text.lower()
     scores = {}
     
-    for emocao, palavras in PALAVRAS_EMOCAO.items():
-        count = sum(1 for palavra in palavras if palavra in text)
-        scores[emocao] = count
+    for tone, keywords in tone_keywords.items():
+        score = sum(1 for keyword in keywords if keyword in text_lower)
+        scores[tone] = score
     
-    if not scores or max(scores.values()) == 0:
+    if not any(scores.values()):
         return "neutro"
     
     return max(scores, key=scores.get)
 
 
-def _identify_areas_criticas(areas_respondidas: dict[int, list[str]]) -> list[int]:
-    """Identifica áreas com sinais de crise."""
-    criticas = []
+def identify_maturity_level(responses: list[dict[str, Any]]) -> str:
+    """
+    Identifica o nível de maturidade narrativa do usuário.
     
-    for area_id, texts in areas_respondidas.items():
-        combined = " ".join(texts).lower()
-        
-        # Verificar presença de palavras de crise
-        crisis_score = 0
-        for categoria, palavras in PALAVRAS_CRISE.items():
-            if any(palavra in combined for palavra in palavras):
-                crisis_score += 1
-        
-        # Verificar autossabotagem
-        if any(palavra in combined for palavra in PALAVRAS_AUTOSSABOTAGEM):
-            crisis_score += 1
-        
-        # Se score >= 2, considerar crítica
-        if crisis_score >= 2:
-            criticas.append(area_id)
+    Returns:
+        "Baixo", "Médio" ou "Alto"
+    """
+    if not responses:
+        return "Médio"
     
-    return criticas
-
-
-def _identify_areas_silenciadas(areas_com_resposta: set[int]) -> list[int]:
-    """Identifica áreas não respondidas ou respondidas vagamente."""
-    todas_areas = set(range(1, 13))  # 1 a 12
-    silenciadas = list(todas_areas - areas_com_resposta)
-    return sorted(silenciadas)
-
-
-def _identify_padroes_repetidos(areas_respondidas: dict[int, list[str]]) -> list[str]:
-    """Identifica temas que aparecem em múltiplas áreas."""
-    # Extrair palavras-chave de cada área
-    area_keywords = {}
-    for area_id, texts in areas_respondidas.items():
-        combined = " ".join(texts).lower()
-        # Extrair substantivos e verbos importantes (simplificado)
-        words = re.findall(r'\b\w{5,}\b', combined)  # Palavras com 5+ letras
-        area_keywords[area_id] = Counter(words).most_common(10)
+    # Critérios simplificados
+    # Alto: usa "eu decidi", "eu escolhi", fala de ações concretas
+    # Médio: reconhece padrões mas fala em termos de "deveria"
+    # Baixo: culpa externa, "não tenho escolha", "a vida é assim"
     
-    # Buscar palavras que aparecem em 2+ áreas
-    palavra_areas = {}
-    for area_id, keywords in area_keywords.items():
-        for palavra, _ in keywords:
-            if palavra not in palavra_areas:
-                palavra_areas[palavra] = []
-            palavra_areas[palavra].append(area_id)
+    high_markers = ["decidi", "escolhi", "assumo", "responsabilidade", "ação"]
+    low_markers = ["culpa", "não posso", "impossível", "vítima", "sem escolha"]
     
-    padroes = []
-    for palavra, areas in palavra_areas.items():
-        if len(areas) >= 2:
-            areas_nomes = [AREAS[a-1] for a in areas if a <= len(AREAS)]
-            padroes.append(f"'{palavra}' aparece em {', '.join(areas_nomes)}")
+    combined_text = " ".join([
+        r.get('answer_value', {}).get('text', '').lower()
+        for r in responses[-10:]
+    ])
     
-    return padroes[:5]  # Top 5 padrões
-
-
-def _determine_ponto_entrada(text: str, memorias: list[str]) -> str:
-    """Determina o Ponto de Entrada predominante."""
-    scores = {
-        "Emocional": 0,
-        "Simbólico": 0,
-        "Comportamental": 0,
-        "Existencial": 0,
-    }
+    high_score = sum(1 for marker in high_markers if marker in combined_text)
+    low_score = sum(1 for marker in low_markers if marker in combined_text)
     
-    # Emocional: menciona sentimentos
-    palavras_emocional = ["sinto", "emoção", "ansioso", "triste", "medo", "angústia"]
-    scores["Emocional"] = sum(1 for p in palavras_emocional if p in text)
-    
-    # Simbólico: menciona valores, sentido, traição
-    palavras_simbolico = ["sentido", "valor", "essência", "traído", "incoerente", "identidade"]
-    scores["Simbólico"] = sum(1 for p in palavras_simbolico if p in text)
-    
-    # Comportamental: menciona hábitos, procrastinação, rotina
-    palavras_comportamental = ["hábito", "rotina", "organizar", "adio", "procrastino", "disciplina"]
-    scores["Comportamental"] = sum(1 for p in palavras_comportamental if p in text)
-    
-    # Existencial: menciona propósito, quem sou, perdido
-    palavras_existencial = ["propósito", "quem sou", "perdido", "missão", "legado", "papel"]
-    scores["Existencial"] = sum(1 for p in palavras_existencial if p in text)
-    
-    # Se todas as scores forem 0, analisar memórias vermelhas
-    if max(scores.values()) == 0 and memorias:
-        combined_memorias = " ".join(memorias).lower()
-        if "sinto" in combined_memorias or "medo" in combined_memorias:
-            return "Emocional"
-        if "sentido" in combined_memorias or "valor" in combined_memorias:
-            return "Simbólico"
-    
-    return max(scores, key=scores.get) if max(scores.values()) > 0 else "Emocional"
-
-
-def _extract_palavras_recorrentes(text: str) -> list[str]:
-    """Extrai as palavras mais recorrentes (substantivos e verbos)."""
-    # Remover stopwords comuns
-    stopwords = {
-        "que", "para", "com", "uma", "mais", "como", "não", "quando",
-        "muito", "sobre", "mas", "também", "isso", "ela", "ele",
-        "meu", "minha", "seu", "sua", "está", "sido", "ser", "ter",
-    }
-    
-    # Extrair palavras (5+ letras)
-    words = re.findall(r'\b\w{5,}\b', text)
-    words = [w for w in words if w not in stopwords]
-    
-    # Contar frequência
-    counter = Counter(words)
-    
-    return [palavra for palavra, _ in counter.most_common(10)]
+    if high_score > low_score + 2:
+        return "Alto"
+    elif low_score > high_score + 2:
+        return "Baixo"
+    else:
+        return "Médio"

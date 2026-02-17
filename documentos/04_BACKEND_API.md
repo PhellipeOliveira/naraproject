@@ -56,6 +56,7 @@ nara-backend/
 │   │   ├── embeddings.py       # OpenAI embeddings
 │   │   ├── retriever.py        # Busca vetorial
 │   │   ├── generator.py        # Geração LLM
+│   │   ├── analyzer.py         # Análise contextual das respostas (V2)
 │   │   └── pipeline.py         # Pipeline completo
 │   │
 │   ├── models/
@@ -416,11 +417,12 @@ async def retrieve_for_question_generation(
     
     all_chunks = []
     
-    # Buscar chunks de metodologia geral
+    # Buscar chunks de metodologia geral (V2)
     methodology_chunks = await retrieve_relevant_chunks(
         query=response_texts if response_texts else "diagnóstico transformação narrativa",
         top_k=5
     )
+    # Nota: A função match_knowledge_chunks já filtra por version=2
     all_chunks.extend(methodology_chunks)
     
     # Buscar chunks das áreas menos cobertas
@@ -561,18 +563,20 @@ Você é um especialista em Transformação Narrativa. Gere exatamente 15 pergun
 
 ## REGRAS IMPORTANTES
 1. Distribua perguntas priorizando as áreas menos cobertas
-2. Mix de tipos: 5 perguntas de escala (1-5), 8 perguntas abertas longas, 2 curtas
-3. Tom empático, curioso e não-julgador
+2. **100% perguntas narrativas e abertas** (open_long ou open_short) — SEM escalas numéricas
+3. Tom empático-autoritário ("Engenheiro da Alma"), curioso e não-julgador
 4. Referencie respostas anteriores quando relevante ("Você mencionou que...")
 5. Aprofunde em temas onde o usuário demonstrou conflito ou emoção
 6. Evite perguntas superficiais - busque a raiz dos padrões
+7. Use linguagem simbólica da metodologia: "âncoras", "capítulo", "travessia", "personagem"
+8. Inclua `follow_up_hint` para cada pergunta
 
 ## FORMATO DE SAÍDA
 Retorne APENAS um JSON array válido no formato:
 [
   {{
     "area": "Nome da Área (ex: Saúde Física)",
-    "type": "scale|open_long|open_short",
+    "type": "open_long|open_short",
     "text": "Texto da pergunta...",
     "follow_up_hint": "Contexto para entender a resposta"
   }}
@@ -672,11 +676,29 @@ Retorne um JSON com EXATAMENTE esta estrutura:
 {{
   "executive_summary": "Resumo executivo de 150-200 palavras. Seja direto mas empático.",
   "overall_score": 0.0-10.0,
+  "vetor_estado": {{
+    "motor_dominante": "Necessidade|Valor|Desejo|Propósito",
+    "motor_secundario": "Necessidade|Valor|Desejo|Propósito",
+    "estagio_jornada": "Germinar|Enraizar|Desenvolver|Florescer|Frutificar|Realizar",
+    "crise_raiz": "Identidade Herdada|Vazio Existencial|Paralisia Decisória|...",
+    "crises_derivadas": ["Crise derivada 1", "Crise derivada 2"],
+    "ponto_entrada_ideal": "Emocional|Simbólico|Comportamental|Existencial",
+    "dominios_alavanca": ["D1", "D3"],
+    "tom_emocional": "vergonha|indignação|apatia|urgência|tristeza",
+    "risco_principal": "Descrição do risco principal",
+    "necessidade_atual": "Descrição da necessidade atual"
+  }},
+  "memorias_vermelhas": [
+    "Frase literal do usuário revelando conflito 1",
+    "Frase literal do usuário revelando conflito 2"
+  ],
+  "areas_silenciadas": [5, 6],
+  "ancoras_sugeridas": ["Âncora 1", "Âncora 2", "Âncora 3"],
   "phase_identified": "germinar|enraizar|desenvolver|florescer|frutificar|realizar",
   "motor_dominante": "Necessidade|Valor|Desejo|Propósito",
   "motor_secundario": "Necessidade|Valor|Desejo|Propósito",
   "crise_raiz": "Identidade|Sentido|Execução|Conexão|Incongruência|Transformação",
-  "ponto_entrada_ideal": "Simbólico|Cognitivo|Comportamental|Emocional|Ambiental|Temporal",
+  "ponto_entrada_ideal": "Emocional|Simbólico|Comportamental|Existencial",
   "area_analysis": [
     {{
       "area_name": "Nome da Área",
@@ -691,6 +713,7 @@ Retorne um JSON com EXATAMENTE esta estrutura:
     "contradictions": ["Contradição 1 nas respostas", "Contradição 2"],
     "self_sabotage_cycles": ["Ciclo de autossabotagem identificado"]
   }},
+  "capital_simbolico": ["Recurso identificado 1", "Recurso identificado 2"],
   "strengths": ["Ponto forte 1", "Ponto forte 2", "Ponto forte 3"],
   "development_areas": [
     {{
@@ -701,7 +724,7 @@ Retorne um JSON com EXATAMENTE esta estrutura:
   ],
   "recommendations": [
     {{
-      "action": "Ação concreta e específica",
+      "action": "Ação concreta e específica (Plano de Assunção Intencional)",
       "timeframe": "imediato|curto_prazo|medio_prazo",
       "area_related": "Área relacionada"
     }}
@@ -709,12 +732,17 @@ Retorne um JSON com EXATAMENTE esta estrutura:
 }}
 
 ## DIRETRIZES
-- Seja empático mas direto - evite rodeios
-- Use frases do próprio usuário como evidência
-- Identifique incongruências entre narrativa, identidade e hábitos
+- Seja empático mas direto - evite rodeios. Tom "Engenheiro da Alma" (empático-autoritário)
+- Use frases do próprio usuário como evidência (Memórias Vermelhas)
+- Identifique incongruências entre narrativa, identidade e hábitos (Incongruência Simbólica)
 - Termine cada seção com perspectiva de crescimento
-- Recomendações devem ser concretas, específicas e realizáveis
+- Recomendações devem ser Âncoras Práticas concretas, específicas e realizáveis
 - Identifique o motor motivacional dominante baseado nas respostas
+- Use linguagem simbólica: "âncoras", "clímax", "travessia", "capítulo", "personagem"
+- Foco em TCC e reestruturação cognitiva quando aplicável
+- Extraia Memórias Vermelhas (frases literais que revelam conflitos não dominados)
+- Identifique áreas silenciadas (não respondidas ou vagas)
+- Sugira Âncoras Práticas das 19 disponíveis na metodologia
 """
 
     response = client.chat.completions.create(
@@ -1088,6 +1116,11 @@ class NaraDiagnosticPipeline:
                 "motor_secundario": report.get("motor_secundario"),
                 "crise_raiz": report.get("crise_raiz"),
                 "ponto_entrada_ideal": report.get("ponto_entrada_ideal"),
+                # Novos campos V2
+                "vetor_estado": report.get("vetor_estado"),
+                "memorias_vermelhas": report.get("memorias_vermelhas", []),
+                "areas_silenciadas": report.get("areas_silenciadas", []),
+                "ancoras_sugeridas": report.get("ancoras_sugeridas", []),
                 "executive_summary": report.get("executive_summary"),
                 "detailed_analysis": report,
                 "recommendations": report.get("recommendations", []),
@@ -1253,105 +1286,113 @@ AREAS = [
 ]
 
 # Perguntas fixas da Fase 1 (Baseline)
-# Distribuição: 5 de escala + 10 abertas
+# V2: 100% perguntas narrativas e abertas (open_long ou open_short)
+# Foco em escuta ativa — sem escalas numéricas
 BASELINE_QUESTIONS = [
-    # Perguntas de escala (1-5) - uma visão geral rápida
     {
         "id": 1,
         "area": "Saúde Física",
-        "type": "scale",
-        "text": "De 1 a 5, como você avalia sua energia física no dia a dia?",
-        "scale_labels": ["Muito baixa", "Baixa", "Regular", "Boa", "Excelente"]
+        "type": "open_long",
+        "text": "Como você descreveria sua relação com seu corpo e sua energia física no dia a dia? O que seu corpo tem te comunicado?",
+        "follow_up_hint": "Explorar vitalidade, disposição e sinais corporais"
     },
     {
         "id": 2,
         "area": "Saúde Mental",
-        "type": "scale",
-        "text": "De 1 a 5, como está seu equilíbrio emocional atualmente?",
-        "scale_labels": ["Muito instável", "Instável", "Regular", "Equilibrado", "Muito equilibrado"]
+        "type": "open_long",
+        "text": "Se sua mente tivesse uma voz própria, o que ela repetiria com mais frequência? Como está seu equilíbrio emocional?",
+        "follow_up_hint": "Explorar pensamentos recorrentes e estado emocional"
     },
     {
         "id": 3,
-        "area": "Vida Profissional",
-        "type": "scale",
-        "text": "De 1 a 5, quão realizado(a) você se sente com seu trabalho atual?",
-        "scale_labels": ["Nada realizado", "Pouco realizado", "Regular", "Realizado", "Muito realizado"]
+        "area": "Saúde Espiritual",
+        "type": "open_long",
+        "text": "O que te dá um senso de propósito ou significado na vida? De onde vem sua força interior?",
+        "follow_up_hint": "Explorar fé, convicção e sentido existencial"
     },
     {
         "id": 4,
-        "area": "Finanças",
-        "type": "scale",
-        "text": "De 1 a 5, como você avalia sua situação financeira atual?",
-        "scale_labels": ["Muito difícil", "Difícil", "Regular", "Boa", "Excelente"]
+        "area": "Vida Pessoal",
+        "type": "open_long",
+        "text": "Se você pudesse descrever quem você é em um parágrafo, sem mencionar seu trabalho ou papéis sociais, o que diria?",
+        "follow_up_hint": "Explorar identidade, autoconhecimento e essência"
     },
     {
         "id": 5,
-        "area": "Vida Pessoal",
-        "type": "scale",
-        "text": "De 1 a 5, quanto você sente que conhece a si mesmo(a)?",
-        "scale_labels": ["Muito pouco", "Pouco", "Razoavelmente", "Bem", "Muito bem"]
+        "area": "Vida Amorosa",
+        "type": "open_long",
+        "text": "Como você descreveria a qualidade das suas relações íntimas? O que você sente que falta ou sobra nelas?",
+        "follow_up_hint": "Explorar vínculos afetivos e padrões relacionais"
     },
-    
-    # Perguntas abertas - exploração inicial
     {
         "id": 6,
-        "area": "Vida Pessoal",
+        "area": "Vida Familiar",
         "type": "open_long",
-        "text": "Se você pudesse descrever quem você é em um parágrafo, sem mencionar seu trabalho ou papéis sociais, o que diria?"
+        "text": "Qual é sua relação atual com sua família? Existem valores ou padrões familiares que você carrega consigo — por escolha ou por herança?",
+        "follow_up_hint": "Explorar identidades herdadas e dinâmicas familiares"
     },
     {
         "id": 7,
-        "area": "Saúde Espiritual",
+        "area": "Vida Social",
         "type": "open_long",
-        "text": "O que te dá um senso de propósito ou significado na vida? De onde vem sua força interior?"
+        "text": "Você se sente genuinamente conectado(a) às pessoas ao seu redor? Onde você se sente mais você mesmo(a)?",
+        "follow_up_hint": "Explorar pertencimento, autenticidade social e ambientes"
     },
     {
         "id": 8,
-        "area": "Vida Amorosa",
-        "type": "open_short",
-        "text": "Como você descreveria a qualidade das suas relações íntimas em uma palavra ou frase curta?"
+        "area": "Vida Profissional",
+        "type": "open_long",
+        "text": "Se dinheiro não fosse uma preocupação, o que você estaria fazendo profissionalmente? Por que não está fazendo isso agora?",
+        "follow_up_hint": "Explorar realização, propósito profissional e barreiras"
     },
     {
         "id": 9,
-        "area": "Vida Familiar",
+        "area": "Finanças",
         "type": "open_long",
-        "text": "Qual é sua relação atual com sua família? Existem valores ou padrões familiares que você carrega consigo?"
+        "text": "Como você descreveria sua relação com dinheiro? Existe alguma crença sobre finanças que você herdou e nunca questionou?",
+        "follow_up_hint": "Explorar crenças financeiras e relação com recursos"
     },
     {
         "id": 10,
-        "area": "Vida Social",
+        "area": "Educação",
         "type": "open_short",
-        "text": "Você se sente genuinamente conectado(a) às pessoas ao seu redor? Por quê?"
+        "text": "Há algo que você gostaria de aprender ou desenvolver, mas vem adiando? O que te impede?",
+        "follow_up_hint": "Explorar crescimento intelectual e bloqueios"
     },
     {
         "id": 11,
-        "area": "Vida Profissional",
+        "area": "Inovação",
         "type": "open_long",
-        "text": "Se dinheiro não fosse uma preocupação, o que você estaria fazendo profissionalmente? Por que não está fazendo isso agora?"
+        "text": "Quando foi a última vez que você tentou algo novo ou saiu da sua zona de conforto? Como foi essa experiência?",
+        "follow_up_hint": "Explorar criatividade, ousadia e medo de recomeçar"
     },
     {
         "id": 12,
-        "area": "Educação",
+        "area": "Lazer",
         "type": "open_short",
-        "text": "Há algo que você gostaria de aprender ou desenvolver, mas vem adiando?"
+        "text": "O que você faz para se divertir e recarregar as energias? Com que frequência consegue fazer isso?",
+        "follow_up_hint": "Explorar descanso, prazer e rituais de recarga"
     },
     {
         "id": 13,
-        "area": "Inovação",
+        "area": "Geral",
         "type": "open_long",
-        "text": "Quando foi a última vez que você tentou algo novo ou saiu da sua zona de conforto? Como foi essa experiência?"
+        "text": "Se você pudesse mudar uma coisa na sua vida agora, o que seria? O que te impede de fazer essa mudança?",
+        "follow_up_hint": "Explorar motor motivacional e barreiras centrais"
     },
     {
         "id": 14,
-        "area": "Lazer",
-        "type": "open_short",
-        "text": "O que você faz para se divertir e recarregar as energias? Com que frequência consegue fazer isso?"
+        "area": "Geral",
+        "type": "open_long",
+        "text": "Existe algo na sua história que você sente que ainda não superou ou ressignificou? Algo que ainda pesa?",
+        "follow_up_hint": "Explorar memórias vermelhas e capítulos não resolvidos"
     },
     {
         "id": 15,
         "area": "Geral",
         "type": "open_long",
-        "text": "Se você pudesse mudar uma coisa na sua vida agora, o que seria? O que te impede de fazer essa mudança?"
+        "text": "Se sua vida fosse um livro, qual seria o título do capítulo atual? E qual título você gostaria que o próximo capítulo tivesse?",
+        "follow_up_hint": "Explorar narrativa atual vs. narrativa desejada (M1 vs. MX)"
     }
 ]
 
@@ -1382,6 +1423,90 @@ TIPOS_CRISE = [
     "Incongruência",    # Choque pessoa x ambiente
     "Transformação"     # Apego a papéis obsoletos
 ]
+
+# Os 4 Níveis de Identidade (Luz Total)
+NIVEIS_IDENTIDADE = [
+    "Personalidade",    # Temperamento, caráter, valores
+    "Cultura",          # Gostos, símbolos, crenças pessoais
+    "Realizações",      # Resultados e conquistas
+    "Posição"           # Como é percebido publicamente
+]
+
+# Os 4 Pontos de Entrada (Portas de Intervenção)
+PONTOS_ENTRADA = {
+    "Emocional": "Usuário relata estados afetivos → Validar e regular emoção",
+    "Simbólico": "Falta de sentido ou traição de valores → Ressignificar",
+    "Comportamental": "Foco em hábitos e procrastinação → Sugerir protocolos concretos",
+    "Existencial": "Crise de papel de vida → Reposicionar missão e legado"
+}
+
+# As 19 Âncoras Práticas (Assunção Intencional)
+ANCORAS_PRATICAS = [
+    # Ambiente e Contexto
+    "Referências", "Objetos", "Ambientes", "Grupo",
+    # Comunicação e Expressão
+    "Tom", "Vocabulário", "Postura", "Vestimenta",
+    # Rotina e Estrutura
+    "Rituais Matinais", "Rituais Noturnos", "Limites", "Marcos",
+    # Emoção e Energia
+    "Emoção Projetada", "Gestão de Energia", "Práticas de Recarga",
+    # Ação e Entrega
+    "Tarefas Identitárias", "Microentregas", "Exposição Gradual", "Testemunhas"
+]
+
+# Domínios Temáticos (D1-D6)
+DOMINIOS_TEMATICOS = {
+    "D1": "Motivações e Conflitos",
+    "D2": "Crenças, Valores e Princípios",
+    "D3": "Evolução e Desenvolvimento",
+    "D4": "Congruência Identidade-Cultura",
+    "D5": "Transformação de Identidade",
+    "D6": "Papel na Sociedade"
+}
+
+# Fatores do Protocolo de Diagnóstico Rápido
+FATORES_DIAGNOSTICO = [
+    "Autenticidade",
+    "Integração do Passado",
+    "Visão/Enredo",
+    "Coragem/Decisão",
+    "Expressão/Voz",
+    "Estrutura/Pertencimento"
+]
+
+# Clusters de Crise (detalhamento)
+CLUSTERS_CRISE = {
+    "Identidade Raiz": {
+        "sinais": ["Identidade herdada", "Vergonha da história", "Autoimagem desatualizada"],
+        "ponto_entrada": "Simbólico",
+        "dominios": ["D1", "D2"]
+    },
+    "Sentido e Direção": {
+        "sinais": ["Futuro opaco", "Tempo perdido", "Falta de enredo"],
+        "ponto_entrada": "Existencial",
+        "dominios": ["D2", "D3"]
+    },
+    "Execução e Estrutura": {
+        "sinais": ["Procrastinação", "Paralisia decisória", "Falta de limites"],
+        "ponto_entrada": "Comportamental",
+        "dominios": ["D3"]
+    },
+    "Conexão e Expressão": {
+        "sinais": ["Medo do julgamento", "Invisibilidade simbólica", "Desconforto com sucesso"],
+        "ponto_entrada": "Emocional",
+        "dominios": ["D4"]
+    },
+    "Incongruência Identidade-Cultura": {
+        "sinais": ["Choque ambiental", "Desajuste sistêmico"],
+        "ponto_entrada": "Simbólico",
+        "dominios": ["D4", "D5"]
+    },
+    "Transformação de Personagem": {
+        "sinais": ["Apego a papéis obsoletos", "Medo de crescer", "Dificuldade em encerrar capítulos"],
+        "ponto_entrada": "Existencial",
+        "dominios": ["D5", "D6"]
+    }
+}
 ```
 
 ---
@@ -1709,7 +1834,7 @@ class AnswerSubmitRequest(BaseModel):
     question_text: str
     question_area: str
     answer_text: Optional[str] = Field(None, max_length=10000)
-    answer_scale: Optional[int] = Field(None, ge=1, le=5)
+    answer_scale: Optional[int] = Field(None, ge=1, le=5)  # LEGACY V1: Sempre null em V2 (perguntas 100% narrativas)
     response_time_seconds: Optional[int] = Field(None, ge=0)
     
     class Config:
@@ -1866,9 +1991,3 @@ class DiagnosticResultResponse(BaseModel):
 ```
 
 ---
-
-**Referências Cruzadas:**
-- Schema do banco: [02_BANCO_DADOS.md](./02_BANCO_DADOS.md)
-- Prompts utilizados: [03_PROMPTS_CONHECIMENTO.md](./03_PROMPTS_CONHECIMENTO.md)
-- Frontend que consome esta API: [05_FRONTEND_UX.md](./05_FRONTEND_UX.md)
-- Sistema de email: [06_OPERACOES_EMAIL.md](./06_OPERACOES_EMAIL.md)
