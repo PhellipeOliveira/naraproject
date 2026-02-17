@@ -5,14 +5,7 @@
 
 import { useState } from 'react';
 import { Button } from '../ui/button';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
-} from '../ui/dialog';
-import { LogOut, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { LogOut, Mail, Loader2, CheckCircle, X } from 'lucide-react';
 import { sendResumeLink } from '../../api/diagnostic';
 
 interface SaveAndExitButtonProps {
@@ -80,83 +73,92 @@ export function SaveAndExitButton({
         Sair e Continuar Depois
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
-          {!emailSent ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <LogOut className="h-5 w-5 text-primary" />
-                  Salvar e Sair
-                </DialogTitle>
-                <DialogDescription>
-                  Seu progresso será salvo automaticamente.
-                </DialogDescription>
-              </DialogHeader>
+      {/* Modal simples sem shadcn/ui Dialog */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 relative">
+            {/* Botão fechar */}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
 
-              <div className="py-4 space-y-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                  <p className="text-sm text-blue-900 dark:text-blue-100">
-                    <strong>Progresso atual:</strong> {totalAnswers} respostas salvas
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-200 mt-1">
-                    Você pode retomar de onde parou usando o email: <strong>{email}</strong>
+            {!emailSent ? (
+              <>
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
+                    <LogOut className="h-5 w-5 text-primary" />
+                    Salvar e Sair
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Seu progresso será salvo automaticamente.
                   </p>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4 mb-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <p className="text-sm text-blue-900 dark:text-blue-100">
+                      <strong>Progresso atual:</strong> {totalAnswers} respostas salvas
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-200 mt-1">
+                      Você pode retomar de onde parou usando o email: <strong>{email}</strong>
+                    </p>
+                  </div>
+
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Deseja receber um email com o link para continuar?
                   </p>
+                </div>
 
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={handleExit}
-                      className="flex-1"
-                      disabled={isLoading}
-                    >
-                      Não, só sair
-                    </Button>
-                    <Button
-                      onClick={handleSendEmail}
-                      className="flex-1 gap-2"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Enviando...
-                        </>
-                      ) : (
-                        <>
-                          <Mail className="h-4 w-4" />
-                          Sim, enviar email
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleExit}
+                    className="flex-1"
+                    disabled={isLoading}
+                  >
+                    Não, só sair
+                  </Button>
+                  <Button
+                    onClick={handleSendEmail}
+                    className="flex-1 gap-2"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="h-4 w-4" />
+                        Sim, enviar email
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="py-8 text-center space-y-4">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
+                    Email Enviado!
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    Verifique sua caixa de entrada em: <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Redirecionando em 2 segundos...
+                  </p>
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="py-8 text-center space-y-4">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-              <div>
-                <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
-                  Email Enviado!
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  Verifique sua caixa de entrada em: <strong>{email}</strong>
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Redirecionando em 2 segundos...
-                </p>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
