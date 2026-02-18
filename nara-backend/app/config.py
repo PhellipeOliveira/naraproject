@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
     SUPABASE_SERVICE_KEY: str = ""
+    ADMIN_API_KEY: str = ""
+    ADMIN_USERNAME: str = ""
+    ADMIN_PASSWORD: str = ""
+    ADMIN_JWT_SECRET: str = ""
+    ADMIN_TOKEN_TTL_MINUTES: int = 60
 
     # OpenAI
     OPENAI_API_KEY: str = ""
@@ -59,6 +64,36 @@ class Settings(BaseSettings):
                     pass
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    def validate_runtime_requirements(self) -> None:
+        """
+        Valida variáveis obrigatórias em ambientes não-locais.
+        Em desenvolvimento local permitimos startup sem todas as chaves para DX.
+        """
+        if self.ENV.lower() in {"development", "dev", "local"}:
+            return
+
+        required = {
+            "SUPABASE_URL": self.SUPABASE_URL,
+            "SUPABASE_SERVICE_KEY": self.SUPABASE_SERVICE_KEY,
+            "OPENAI_API_KEY": self.OPENAI_API_KEY,
+        }
+        admin_credentials_ok = all(
+            [
+                str(self.ADMIN_USERNAME).strip(),
+                str(self.ADMIN_PASSWORD).strip(),
+                str(self.ADMIN_JWT_SECRET).strip(),
+            ]
+        )
+        # Aceita modelo novo (login+token) ou fallback legado (X-Admin-Key)
+        if not admin_credentials_ok and not str(self.ADMIN_API_KEY).strip():
+            required["ADMIN_AUTH"] = ""
+        missing = [name for name, value in required.items() if not str(value).strip()]
+        if missing:
+            raise ValueError(
+                "Variáveis obrigatórias ausentes para ambiente "
+                f"{self.ENV}: {', '.join(missing)}"
+            )
 
     class Config:
         env_file = ".env"

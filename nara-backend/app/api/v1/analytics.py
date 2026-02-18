@@ -5,12 +5,17 @@ Métricas e visualizações do sistema NARA.
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_admin_access
 from app.services.analytics_service import analytics_service
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+router = APIRouter(
+    prefix="/analytics",
+    tags=["Analytics"],
+    dependencies=[Depends(require_admin_access)],
+)
 
 
 # ============================================

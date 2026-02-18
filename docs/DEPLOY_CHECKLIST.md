@@ -39,6 +39,8 @@
 
 ### Monitoramento
 - [ ] Logs estruturados configurados
+- [ ] `X-Request-ID` retornando em todas as respostas da API
+- [ ] Correlação por `request_id` ativa nos logs de aplicação
 - [ ] Alertas configurados (Slack/Email)
 - [ ] Health checks funcionando:
   - [ ] `/health` (básico)
@@ -67,6 +69,11 @@ SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_KEY=eyJ...
 OPENAI_API_KEY=sk-...
 RESEND_API_KEY=re_...
+ADMIN_API_KEY=strong-random-admin-key
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=strong-admin-password
+ADMIN_JWT_SECRET=strong-random-secret
+ADMIN_TOKEN_TTL_MINUTES=60
 EMAIL_FROM=nara@seudominio.com
 FRONTEND_URL=https://nara.app
 ENV=production

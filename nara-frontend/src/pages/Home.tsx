@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { LegalFooter } from "../components/LegalFooter";
 import { buttonVariants } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { cn } from "../lib/utils";
@@ -21,6 +22,7 @@ export default function Home() {
           <Link to="/diagnostico/iniciar" className={cn(buttonVariants(), "w-full")}>
             Iniciar diagnóstico
           </Link>
+          <LegalFooter />
         </CardContent>
       </Card>
     </div>

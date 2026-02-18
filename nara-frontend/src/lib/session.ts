@@ -155,7 +155,9 @@ export async function migrateAnonymousDiagnostic(
     }
     return false;
   } catch (error) {
-    console.error('Erro ao migrar diagnóstico:', error);
+    if (import.meta.env.DEV) {
+      console.error('Erro ao migrar diagnóstico:', error);
+    }
     return false;
   }
 }

@@ -145,7 +145,9 @@ export default function Diagnostic() {
             currentQuestionIndex: 0,
           });
         } catch (e) {
-          console.error(e);
+          if (import.meta.env.DEV) {
+            console.error(e);
+          }
           const msg =
             e && typeof e === "object" && "response" in e
               ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -160,7 +162,9 @@ export default function Diagnostic() {
         goNext();
       }
     } catch (e: unknown) {
-      console.error(e);
+      if (import.meta.env.DEV) {
+        console.error(e);
+      }
       const msg =
         e && typeof e === "object" && "response" in e
           ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -185,7 +189,9 @@ export default function Diagnostic() {
         currentQuestionIndex: 0,
       });
     } catch (e) {
-      console.error(e);
+      if (import.meta.env.DEV) {
+        console.error(e);
+      }
       const msg =
         e && typeof e === "object" && "response" in e
           ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -206,7 +212,9 @@ export default function Diagnostic() {
       reset();
       navigate(`/resultado/${resultToken}`, { state: { diagnosticId: id } });
     } catch (e) {
-      console.error(e);
+      if (import.meta.env.DEV) {
+        console.error(e);
+      }
     } finally {
       setFinishing(false);
     }

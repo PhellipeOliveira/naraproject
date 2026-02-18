@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { apiClient } from "../api/client";
 import { DashboardKPIs } from "../components/dashboard/DashboardKPIs";
 import { MotoresChart } from "../components/dashboard/MotoresChart";
 import { AreasSilenciadasHeatmap } from "../components/dashboard/AreasSilenciadasHeatmap";
-import { FadeIn, StaggerChildren } from "../components/result/AnimatedTransitions";
+import { FadeIn } from "../components/result/AnimatedTransitions";
 import { RefreshCw, Download, TrendingUp } from "lucide-react";
+import { clearAdminToken } from "../lib/adminSession";
 
 interface DashboardData {
   period: {
@@ -44,6 +47,7 @@ interface KPIsData {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [kpis, setKPIs] = useState<KPIsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,25 +59,13 @@ export default function Dashboard() {
     setError(null);
 
     try {
-      const baseURL = import.meta.env.VITE_API_URL || "/api/v1";
-      
-      // Buscar dados principais
       const [dashboardRes, kpisRes] = await Promise.all([
-        fetch(`${baseURL}/analytics/dashboard`),
-        fetch(`${baseURL}/analytics/kpis`),
+        apiClient.get("/analytics/dashboard"),
+        apiClient.get("/analytics/kpis"),
       ]);
 
-      if (!dashboardRes.ok || !kpisRes.ok) {
-        throw new Error("Erro ao carregar dados do dashboard");
-      }
-
-      const [dashboardData, kpisData] = await Promise.all([
-        dashboardRes.json(),
-        kpisRes.json(),
-      ]);
-
-      setData(dashboardData);
-      setKPIs(kpisData);
+      setData(dashboardRes.data);
+      setKPIs(kpisRes.data);
       setLastUpdate(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -101,6 +93,11 @@ export default function Dashboard() {
     link.download = `nara-dashboard-${new Date().toISOString().split("T")[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleLogout = () => {
+    clearAdminToken();
+    navigate("/admin/login", { replace: true });
   };
 
   if (loading && !data) {
@@ -160,6 +157,9 @@ export default function Dashboard() {
               <Button onClick={handleExportData} variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
+              </Button>
+              <Button onClick={handleLogout} variant="outline" size="sm">
+                Sair
               </Button>
             </div>
           </div>

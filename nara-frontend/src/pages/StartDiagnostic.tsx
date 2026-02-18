@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { startDiagnostic, checkExistingDiagnostic } from "../api/diagnostic";
+import { LegalFooter } from "../components/LegalFooter";
 import { useDiagnosticStore } from "../stores";
 import { getOrCreateSessionId, setStoredDiagnosticId } from "../lib/session";
 
@@ -87,7 +88,9 @@ export default function StartDiagnostic() {
       setStoredDiagnosticId(result.diagnostic_id);
       navigate(`/diagnostico/${result.diagnostic_id}`);
     } catch (err: unknown) {
-      console.error(err);
+      if (import.meta.env.DEV) {
+        console.error(err);
+      }
       const message =
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -156,8 +159,15 @@ export default function StartDiagnostic() {
                   className="mt-1"
                 />
                 <label htmlFor="consent_privacy" className="text-sm">
-                  Aceito a política de privacidade e o uso dos meus dados para geração do
-                  diagnóstico.
+                  Aceito a{" "}
+                  <Link to="/politica-de-privacidade" className="underline">
+                    politica de privacidade
+                  </Link>{" "}
+                  e os{" "}
+                  <Link to="/termos-de-uso" className="underline">
+                    termos de uso
+                  </Link>
+                  , incluindo o uso dos meus dados para geracao do diagnostico.
                 </label>
               </div>
               {errors.consent_privacy && (
@@ -192,6 +202,7 @@ export default function StartDiagnostic() {
                   {isSubmitting ? "Iniciando..." : "Iniciar diagnóstico"}
                 </Button>
               </div>
+              <LegalFooter />
             </form>
           )}
         </CardContent>

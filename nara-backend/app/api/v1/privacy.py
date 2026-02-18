@@ -1,17 +1,26 @@
 """Endpoints LGPD: exportar e excluir dados do titular (por email + result_token)."""
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from pydantic import EmailStr
 
+from app.core.rate_limit import limiter
 from app.database import supabase
 
 router = APIRouter()
 
 
 @router.get("/my-data")
+@limiter.limit("5/minute")
 async def export_my_data(
-    email: str = Query(..., description="Email do titular"),
-    result_token: str = Query(..., description="Token do resultado (prova de posse)"),
+    request: Request,
+    email: EmailStr = Query(..., description="Email do titular"),
+    result_token: str = Query(
+        ...,
+        min_length=8,
+        max_length=120,
+        description="Token do resultado (prova de posse)",
+    ),
 ):
     """
     Exporta dados do titular associados ao diagnóstico (LGPD Art. 18 - Portabilidade).
@@ -53,9 +62,16 @@ async def export_my_data(
 
 
 @router.delete("/my-data")
+@limiter.limit("5/minute")
 async def delete_my_data(
-    email: str = Query(..., description="Email do titular"),
-    result_token: str = Query(..., description="Token do resultado (prova de posse)"),
+    request: Request,
+    email: EmailStr = Query(..., description="Email do titular"),
+    result_token: str = Query(
+        ...,
+        min_length=8,
+        max_length=120,
+        description="Token do resultado (prova de posse)",
+    ),
     confirm: bool = Query(False, description="Confirmação de exclusão"),
 ):
     """

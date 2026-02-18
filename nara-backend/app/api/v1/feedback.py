@@ -1,10 +1,14 @@
 """Endpoints de feedback NPS."""
-from fastapi import APIRouter, HTTPException, status
+import logging
+
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from app.core.rate_limit import limiter
 from app.database import supabase
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class FeedbackRequest(BaseModel):
@@ -25,23 +29,25 @@ class FeedbackResponse(BaseModel):
 
 
 @router.post("", response_model=FeedbackResponse)
-async def submit_feedback(request: FeedbackRequest):
+@limiter.limit("30/minute")
+async def submit_feedback(request: Request, payload: FeedbackRequest):
     """
     Submete feedback NPS após conclusão do diagnóstico.
     """
     payload = {
-        "diagnostic_id": request.diagnostic_id,
-        "nps_score": request.nps_score,
-        "rating": request.rating,
-        "feedback_text": request.feedback_text,
-        "feedback_type": request.feedback_type,
+        "diagnostic_id": payload.diagnostic_id,
+        "nps_score": payload.nps_score,
+        "rating": payload.rating,
+        "feedback_text": payload.feedback_text,
+        "feedback_type": payload.feedback_type,
     }
     try:
         supabase.table("feedback").insert(payload).execute()
     except Exception as e:
+        logger.exception("submit_feedback failed for diagnostic_id=%s: %s", payload.diagnostic_id, e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Erro ao registrar feedback: {e}",
+            detail="Erro ao registrar feedback. Tente novamente.",
         ) from e
     return FeedbackResponse(
         status="ok",

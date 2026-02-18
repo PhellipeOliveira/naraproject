@@ -1,9 +1,10 @@
 """Endpoints de waitlist."""
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, EmailStr
 
+from app.core.rate_limit import limiter
 from app.database import supabase
 from app.services.email_service import EmailService
 
@@ -31,13 +32,14 @@ class WaitlistResponse(BaseModel):
 
 
 @router.post("", response_model=WaitlistResponse)
-async def join_waitlist(request: WaitlistRequest):
+@limiter.limit("20/hour")
+async def join_waitlist(request: Request, payload: WaitlistRequest):
     """
     Adiciona email à lista de espera.
     Se já existir, retorna status already_registered.
     """
     existing = (
-        supabase.table("waitlist").select("id").eq("email", request.email).execute()
+        supabase.table("waitlist").select("id").eq("email", payload.email).execute()
     )
 
     if existing.data and len(existing.data) > 0:
@@ -47,11 +49,11 @@ async def join_waitlist(request: WaitlistRequest):
         )
 
     supabase.table("waitlist").insert({
-        "email": request.email,
-        "full_name": request.full_name,
-        "diagnostic_id": request.diagnostic_id,
-        "source": request.source,
-        "utm_source": request.utm_source,
+        "email": payload.email,
+        "full_name": payload.full_name,
+        "diagnostic_id": payload.diagnostic_id,
+        "source": payload.source,
+        "utm_source": payload.utm_source,
     }).execute()
 
     count_result = supabase.table("waitlist").select("id", count="exact").execute()
@@ -61,8 +63,8 @@ async def join_waitlist(request: WaitlistRequest):
 
     try:
         await email_service.send_waitlist_welcome(
-            to=request.email,
-            user_name=request.full_name,
+            to=payload.email,
+            user_name=payload.full_name,
         )
     except Exception as e:
         logger.warning("Erro ao enviar email de boas-vindas da waitlist: %s", e)
@@ -75,7 +77,8 @@ async def join_waitlist(request: WaitlistRequest):
 
 
 @router.get("/count")
-async def get_waitlist_count():
+@limiter.limit("60/minute")
+async def get_waitlist_count(request: Request):
     """Retorna contagem da lista de espera (para social proof)."""
     result = supabase.table("waitlist").select("id", count="exact").execute()
     count = getattr(result, "count", None)
