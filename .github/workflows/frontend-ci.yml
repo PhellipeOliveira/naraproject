@@ -6,9 +6,8 @@ on:
       - "nara-frontend/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
-    paths:
-      - "nara-frontend/**"
-      - ".github/workflows/frontend-ci.yml"
+    branches:
+      - "main"
 
 jobs:
   test-frontend:
