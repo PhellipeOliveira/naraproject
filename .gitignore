@@ -1,0 +1,50 @@
+# Ambiente e segredos (nunca commitar .env com chaves)
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+.pnpm-debug.log*
+dist/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Cursor
+.cursor/
+
+# Testes e cobertura
+.coverage
+htmlcov/
+.pytest_cache/
+*.cover
+
+# Build e cache
+*.log
+.cache/
+
+# Conteúdo sensível (não publicar)
+docs/
+documentos/
+docs-rag/
+supabase/
+docs/
