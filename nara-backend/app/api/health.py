@@ -19,7 +19,7 @@ router = APIRouter(tags=["Health"])
 async def health():
     """
     Health check básico.
-    Usado por Render/Railway, Kubernetes, etc.
+    Usado por Render/Railway e monitoramento externo.
     """
     return {
         "status": "healthy",
