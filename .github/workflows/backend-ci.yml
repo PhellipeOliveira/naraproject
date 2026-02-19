@@ -6,9 +6,8 @@ on:
       - "nara-backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    paths:
-      - "nara-backend/**"
-      - ".github/workflows/backend-ci.yml"
+    branches:
+      - "main"
 
 jobs:
   test-backend:
