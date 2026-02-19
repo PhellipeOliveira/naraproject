@@ -1,0 +1,51 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "nara-backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "nara-backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nara-backend
+    env:
+      SUPABASE_URL: "https://test.supabase.co"
+      SUPABASE_KEY: "test-anon-key"
+      SUPABASE_SERVICE_KEY: "test-service-key"
+      OPENAI_API_KEY: "sk-test"
+      RESEND_API_KEY: "re_test"
+      ADMIN_API_KEY: "test-admin-key"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "password123"
+      ADMIN_JWT_SECRET: "test-admin-jwt-secret"
+      ENV: "development"
+      DEBUG: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "nara-backend/requirements.txt"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile check
+        run: python -m compileall app
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit -q
