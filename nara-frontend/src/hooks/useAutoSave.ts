@@ -28,7 +28,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export function useAutoSave(diagnosticId: string | null) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const lastSavedRef = useRef<string>('');
   
   /**

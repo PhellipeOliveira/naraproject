@@ -1,5 +1,5 @@
 import { Card, CardContent } from "../ui/card";
-import { TrendingUp, TrendingDown, Target, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, CheckCircle, AlertCircle } from "lucide-react";
 
 interface DashboardKPIsProps {
   kpis: {

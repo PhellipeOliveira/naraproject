@@ -3,10 +3,8 @@
  * Conforme 06_OPERACOES_EMAIL.md - Seção 7
  */
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { Card, CardHeader } from '../ui/card';
 import { Button } from '../ui/button';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Clock, RefreshCw, Play } from 'lucide-react';
 
 interface ResumeModalProps {
@@ -23,7 +21,7 @@ interface ResumeModalProps {
 
 export function ResumeModal({ 
   open, 
-  onClose, 
+  onClose,
   diagnostic, 
   onResume, 
   onStartNew 
@@ -31,23 +29,29 @@ export function ResumeModal({
   const ESTIMATED_TOTAL_QUESTIONS = 40;
   const progress = Math.round((diagnostic.total_answers / ESTIMATED_TOTAL_QUESTIONS) * 100);
   
-  const startedAgo = formatDistanceToNow(new Date(diagnostic.started_at), {
-    addSuffix: true,
-    locale: ptBR
-  });
+  const startedAgo = getRelativeTime(diagnostic.started_at);
+
+  if (!open) {
+    return null;
+  }
   
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Clock className="h-5 w-5 text-primary" />
             Diagnóstico em Andamento
-          </DialogTitle>
-          <DialogDescription>
+            </h2>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Fechar
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
             Encontramos um diagnóstico que você iniciou {startedAgo}.
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </CardHeader>
         
         <div className="py-4 space-y-4">
           <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-4">
@@ -97,7 +101,24 @@ export function ResumeModal({
         <p className="text-xs text-center text-gray-500 dark:text-gray-400">
           Se começar um novo, o diagnóstico anterior será arquivado.
         </p>
-      </DialogContent>
-    </Dialog>
+      </Card>
+    </div>
   );
+}
+
+function getRelativeTime(startedAt: string): string {
+  const started = new Date(startedAt).getTime();
+  const now = Date.now();
+  if (Number.isNaN(started)) return "recentemente";
+
+  const diffMs = Math.max(0, now - started);
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "agora mesmo";
+  if (minutes < 60) return `há ${minutes} minuto${minutes === 1 ? "" : "s"}`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} hora${hours === 1 ? "" : "s"}`;
+
+  const days = Math.floor(hours / 24);
+  return `há ${days} dia${days === 1 ? "" : "s"}`;
 }

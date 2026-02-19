@@ -3,7 +3,7 @@
  * Conforme 06_OPERACOES_EMAIL.md - Seção 2
  */
 
-import { Cloud, CloudOff, Check, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { CloudOff, Check, Loader2, AlertCircle, WifiOff } from 'lucide-react';
 import type { SaveStatus } from '../../hooks/useAutoSave';
 import { useEffect, useState } from 'react';
 

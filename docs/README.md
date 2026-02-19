@@ -16,6 +16,9 @@
 2. **[INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)**  
    Guia prático de integração com exemplos de código, componentes React, gerenciamento de estado e testes.
 
+3. **[PR_MERGE_WORKFLOW.md](./PR_MERGE_WORKFLOW.md)**  
+   Fluxo padronizado de branch, PR e merge para `main`, `dev` e `plan`, com checklist de release.
+
 ### Para Product Owners / Gestores
 
 3. **[../documentos/01_BASE_METODOLOGICA_NARA.md](../documentos/01_BASE_METODOLOGICA_NARA.md)**  

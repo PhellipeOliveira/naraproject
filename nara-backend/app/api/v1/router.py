@@ -27,7 +27,6 @@ api_router.include_router(
 )
 api_router.include_router(
     analytics.router,
-    prefix="/analytics",
     tags=["Analytics"],
 )
 api_router.include_router(

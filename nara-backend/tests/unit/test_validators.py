@@ -46,7 +46,7 @@ class TestValidators:
         
         assert len(areas) == 12
         assert "Saúde Física" in areas
-        assert "Propósito e Vocação" in areas
+        assert "Vida Profissional" in areas
         assert "Área Inválida" not in areas
     
     def test_phase_validation(self):
@@ -68,7 +68,7 @@ class TestAnswerProcessing:
         """Testa cálculo de palavras."""
         text = "Esta resposta tem exatamente cinco palavras"
         words = text.split()
-        assert len(words) == 5
+        assert len(words) == 6
         
         empty = ""
         assert len(empty.split()) == 0

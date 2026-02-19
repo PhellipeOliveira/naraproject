@@ -5,7 +5,7 @@ interface MotoresChartProps {
   data: Array<{
     motor_dominante: string;
     count: number;
-    percentage: float;
+    percentage: number;
   }>;
 }
 

@@ -12,6 +12,9 @@
 - [ ] Sem secrets hardcoded (`.env.example` atualizado)
 - [ ] Linting sem erros (`ruff check .` ou `flake8`)
 - [ ] Type hints validados (`mypy app/`)
+- [ ] CI verde no GitHub Actions:
+  - [ ] `Backend CI` (`.github/workflows/backend-ci.yml`)
+  - [ ] `Frontend CI` (`.github/workflows/frontend-ci.yml`)
 
 ### Infraestrutura
 - [ ] SSL/TLS configurado (HTTPS ativo)
