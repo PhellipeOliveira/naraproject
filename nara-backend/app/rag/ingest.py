@@ -337,16 +337,15 @@ def chunks_to_knowledge_rows(
     chunks: list[dict[str, Any]],
     embeddings: list[list[float]],
     *,
-    source_version: str = "docs_rag_v1",
+    source_version: str = "docs_rag",
 ) -> list[dict[str, Any]]:
     """
     Converte lista de chunks + embeddings em linhas para insert em knowledge_chunks.
 
-    Compatível com schema V2: chapter, section, content, embedding, metadata,
-    motor_motivacional, estagio_jornada, tipo_crise, ponto_entrada,
-    sintomas_comportamentais (renomeado de sintomas), tom_emocional,
-    nivel_maturidade, subtipo_crise, tipo_conteudo, dominio, is_active, version.
+    A versão ativa é lida de settings.RAG_CHUNK_VERSION (centralizado em config.py).
     """
+    from app.config import settings
+
     rows: list[dict[str, Any]] = []
     for i, ch in enumerate(chunks):
         emb = embeddings[i] if i < len(embeddings) else None
@@ -362,14 +361,14 @@ def chunks_to_knowledge_rows(
             "estagio_jornada": None,
             "tipo_crise": None,
             "ponto_entrada": None,
-            "sintomas_comportamentais": None,  # Renomeado de sintomas na V2
+            "sintomas_comportamentais": None,
             "tom_emocional": None,
-            "nivel_maturidade": None,  # Novo campo V2
-            "subtipo_crise": None,  # Novo campo V2
-            "tipo_conteudo": None,  # Novo campo V2
-            "dominio": None,  # Novo campo V2
+            "nivel_maturidade": None,
+            "subtipo_crise": None,
+            "tipo_conteudo": None,
+            "dominio": None,
             "is_active": True,
-            "version": 1,
+            "version": settings.RAG_CHUNK_VERSION,
         }
         rows.append(row)
     return rows

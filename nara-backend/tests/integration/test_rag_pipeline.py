@@ -14,18 +14,14 @@ class TestRAGPipeline:
     async def test_retrieve_chunks_with_query(self):
         """Testa busca de chunks relevantes."""
         query = "Como melhorar minha saúde física?"
-        
+
         chunks = await retrieve_relevant_chunks(
             query=query,
             top_k=5,
-            filter_version=1,
-            filter_chunk_strategy="semantic"
         )
-        
-        # Deve retornar resultados
+
         assert isinstance(chunks, list)
-        
-        # Se houver chunks, validar estrutura
+
         if chunks:
             chunk = chunks[0]
             assert "content" in chunk
@@ -47,13 +43,10 @@ class TestRAGPipeline:
             query="Qual meu propósito?",
             top_k=3,
             filter_chapter="Metodologia",
-            filter_version=1,
-            filter_chunk_strategy="semantic"
         )
-        
+
         assert isinstance(chunks, list)
-        
-        # Validar que filtros foram aplicados
+
         for chunk in chunks:
             if "chapter" in chunk:
                 assert chunk["chapter"] == "Metodologia"

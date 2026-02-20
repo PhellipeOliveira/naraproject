@@ -43,3 +43,5 @@ A geração de perguntas da **fase 2+** e o relatório final usam chunks em `kno
 3. Índice vetorial: migration `20260213000005_nara_chunks_vector_index.sql` (cria ivfflat quando houver dados).
 
 **Como conferir:** Ao concluir as 15 perguntas da fase 1 e pedir as próximas, o backend chama `retrieve_for_question_generation` → RPC `match_knowledge_chunks`. Nos logs deve aparecer `RAG retrieved N chunks`. Se aparecer `RAG context empty`, não há chunks com embedding ou o threshold de similaridade não está sendo atingido.
+
+**Versões de chunks (v1 vs v2):** Se você apagou chunks antigos e recriou apenas a base metodológica refinada, o código usa **version=2** por padrão. Detalhes em [docs/SUPABASE_CHUNKS_E_VERSOES.md](docs/SUPABASE_CHUNKS_E_VERSOES.md).

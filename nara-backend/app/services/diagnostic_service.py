@@ -1,4 +1,5 @@
 """Serviço de orquestração do diagnóstico."""
+import json
 from typing import Any, Dict, Optional
 
 from app.config import settings
@@ -222,6 +223,28 @@ class DiagnosticService:
         areas_covered = diagnostic.get("areas_covered") or []
         areas_count = len(areas_covered) if isinstance(areas_covered, list) else 0
         eligibility = await self.check_eligibility(diagnostic_id)
+
+        # Respostas já salvas (question_id -> texto) para preencher ao clicar "Anterior" ao retomar
+        answers_result = (
+            supabase.table("answers")
+            .select("question_id, answer_value")
+            .eq("diagnostic_id", diagnostic_id)
+            .order("answered_at")
+            .execute()
+        )
+        answers_prefill: Dict[str, str] = {}
+        for row in (answers_result.data or []):
+            qid = row.get("question_id")
+            if qid is not None:
+                val = row.get("answer_value") or {}
+                if isinstance(val, str):
+                    try:
+                        val = json.loads(val)
+                    except Exception:
+                        val = {}
+                text = (val.get("text") or "").strip()
+                answers_prefill[str(qid)] = text
+
         return {
             "diagnostic_id": diagnostic_id,
             "result_token": result_token,
@@ -233,6 +256,7 @@ class DiagnosticService:
             "total_words": total_words,
             "areas_covered": areas_covered,
             "questions": questions,
+            "answers_prefill": answers_prefill,
             "can_finish": eligibility["can_finish"],
             "progress": {
                 "overall": min(100, eligibility["overall_progress"]),
