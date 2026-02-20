@@ -271,18 +271,36 @@ export default function Diagnostic() {
 
   if (!currentQuestion && questions.length === 0) {
     const canLoadNextPhase = totalAnswers > 0 && phase >= 2;
+    const isMaxPhaseReached =
+      submitError &&
+      (String(submitError).includes("completou todas as fases") ||
+        String(submitError).includes("Não há próxima fase"));
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center max-w-md">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center max-w-md space-y-4">
         {canLoadNextPhase ? (
           <>
-            <p className="text-muted-foreground mb-4">
-              Suas perguntas desta fase não estavam salvas (retomada antiga). Você pode gerar a
-              próxima fase e continuar de onde parou — seu progresso ({totalAnswers} respostas) será
-              mantido.
-            </p>
-            <Button onClick={handleLoadNextPhaseFromResume} disabled={generatingNextPhase}>
-              {generatingNextPhase ? "Gerando..." : "Gerar próxima fase"}
-            </Button>
+            {isMaxPhaseReached ? (
+              <>
+                <p className="text-muted-foreground">{submitError}</p>
+                <Button onClick={handleFinish} disabled={finishing || !canFinish}>
+                  {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground mb-4">
+                  Suas perguntas desta fase não estavam salvas (retomada antiga). Você pode gerar a
+                  próxima fase e continuar de onde parou — seu progresso ({totalAnswers} respostas) será
+                  mantido.
+                </p>
+                {submitError && (
+                  <p className="text-sm text-destructive">{submitError}</p>
+                )}
+                <Button onClick={handleLoadNextPhaseFromResume} disabled={generatingNextPhase}>
+                  {generatingNextPhase ? "Gerando..." : "Gerar próxima fase"}
+                </Button>
+              </>
+            )}
           </>
         ) : (
           <p className="text-muted-foreground">Nenhuma pergunta disponível.</p>
@@ -359,7 +377,7 @@ export default function Diagnostic() {
             variant="outline"
             onClick={handleFinish}
             disabled={finishing}
-            className="border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10 hover:border-primary/60"
+            className="border-2 border-primary-200 bg-primary-50 text-foreground hover:bg-primary-100 hover:border-primary-300"
           >
             {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
           </Button>

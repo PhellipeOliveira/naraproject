@@ -109,10 +109,10 @@ async def get_next_questions(request: Request, diagnostic_id: str):
     try:
         result = await service.get_next_questions(diagnostic_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e) if str(e) else "Diagnóstico não encontrado",
-        )
+        msg = str(e) if str(e) else "Diagnóstico não encontrado"
+        if "Não há próxima fase" in msg or "completou todas as fases" in msg:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
     except Exception as e:
         logger.exception("Erro ao gerar próximas perguntas: %s", e)
         msg = str(e) if str(e) else "Falha ao gerar perguntas (RAG/LLM). Tente novamente em instantes."
