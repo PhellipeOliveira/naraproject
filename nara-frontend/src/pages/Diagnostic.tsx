@@ -221,13 +221,19 @@ export default function Diagnostic() {
       if (import.meta.env.DEV) {
         console.error(e);
       }
-      const msg =
+      const raw =
         e && typeof e === "object" && "response" in e
-          ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          ? (e as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
           : null;
-      setSubmitError(
-        typeof msg === "string" ? msg : "Erro ao carregar próximas perguntas. Tente novamente."
-      );
+      const msg =
+        typeof raw === "string"
+          ? raw
+          : raw && typeof raw === "object" && "message" in raw
+            ? String((raw as { message: string }).message)
+            : raw
+              ? JSON.stringify(raw)
+              : "Erro ao carregar próximas perguntas. Tente novamente.";
+      setSubmitError(msg);
     } finally {
       setGeneratingNextPhase(false);
     }
@@ -271,18 +277,31 @@ export default function Diagnostic() {
 
   if (!currentQuestion && questions.length === 0) {
     const canLoadNextPhase = totalAnswers > 0 && phase >= 2;
+    const errStr = submitError ? String(submitError) : "";
     const isMaxPhaseReached =
       submitError &&
-      (String(submitError).includes("completou todas as fases") ||
-        String(submitError).includes("Não há próxima fase"));
+      (errStr.includes("completou todas as fases") ||
+        errStr.includes("Não há próxima fase") ||
+        errStr.includes("current_phase_check") ||
+        errStr.includes("violates check constraint") ||
+        errStr.includes("23514"));
+    const maxPhaseMessage =
+      "Você completou todas as fases (máximo 4). Finalize o diagnóstico para ver seu resultado.";
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center max-w-md space-y-4">
         {canLoadNextPhase ? (
           <>
             {isMaxPhaseReached ? (
               <>
-                <p className="text-muted-foreground">{submitError}</p>
-                <Button onClick={handleFinish} disabled={finishing || !canFinish}>
+                <p className="text-muted-foreground">
+                  {errStr.includes("completou todas as fases") || errStr.includes("Não há próxima fase")
+                    ? submitError
+                    : maxPhaseMessage}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Você já tem {totalAnswers} respostas (acima do mínimo). Clique abaixo para gerar seu relatório.
+                </p>
+                <Button onClick={handleFinish} disabled={finishing}>
                   {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
                 </Button>
               </>
