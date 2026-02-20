@@ -22,6 +22,8 @@ export default function Diagnostic() {
   const [generatingNextPhase, setGeneratingNextPhase] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [localAnswerText, setLocalAnswerText] = useState("");
+  /** Respostas já dadas nesta sessão (por question_id), para restaurar ao clicar "Anterior". */
+  const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<number, string>>({});
   const [userEmail, setUserEmail] = useState<string>("");
 
   const {
@@ -41,6 +43,13 @@ export default function Diagnostic() {
   } = useDiagnosticStore();
 
   const currentQuestion = questions[currentQuestionIndex];
+
+  // Restaurar o texto da pergunta atual ao navegar (Anterior/Próximo), para o usuário poder editar.
+  useEffect(() => {
+    if (currentQuestion) {
+      setLocalAnswerText(answersByQuestionId[currentQuestion.id] ?? "");
+    }
+  }, [currentQuestion?.id, currentQuestionIndex, answersByQuestionId]);
 
   const syncState = useCallback(
     async (diagId: string) => {
@@ -83,6 +92,16 @@ export default function Diagnostic() {
             coverage: 0,
           },
         });
+        // Preencher respostas já salvas para restaurar ao clicar "Anterior" (ex.: após retomar pelo link do email)
+        const prefill = state.answers_prefill as Record<string, string> | undefined;
+        if (prefill && typeof prefill === "object") {
+          const byId: Record<number, string> = {};
+          for (const [k, v] of Object.entries(prefill)) {
+            const id = Number(k);
+            if (!Number.isNaN(id) && typeof v === "string") byId[id] = v;
+          }
+          setAnswersByQuestionId(byId);
+        }
       } catch {
         setLoading(false);
       }
@@ -132,6 +151,10 @@ export default function Diagnostic() {
         status: res.status as "in_progress" | "eligible",
       });
 
+      setAnswersByQuestionId((prev) => ({
+        ...prev,
+        [currentQuestion.id]: localAnswerText,
+      }));
       setLocalAnswerText("");
 
       if (res.phase_complete && res.status !== "eligible") {
@@ -139,11 +162,17 @@ export default function Diagnostic() {
         setSubmitError(null);
         try {
           const next = await getNextQuestions(id);
-          useDiagnosticStore.setState({
-            phase: next.phase,
-            questions: next.questions,
-            currentQuestionIndex: 0,
-          });
+          if (next.questions && next.questions.length > 0) {
+            useDiagnosticStore.setState({
+              phase: next.phase,
+              questions: next.questions,
+              currentQuestionIndex: 0,
+            });
+          } else {
+            setSubmitError(
+              "As próximas perguntas ainda não foram geradas. Atualize a página ou tente novamente em instantes."
+            );
+          }
         } catch (e) {
           if (import.meta.env.DEV) {
             console.error(e);
@@ -309,18 +338,43 @@ export default function Diagnostic() {
           answerText={localAnswerText}
           onTextChange={setLocalAnswerText}
           onNext={handleSubmitAndNext}
-          onPrev={() => goPrev()}
+          onPrev={() => {
+            setAnswersByQuestionId((prev) => ({
+              ...prev,
+              [currentQuestion.id]: localAnswerText,
+            }));
+            goPrev();
+          }}
           canPrev={currentQuestionIndex > 0}
           isSubmitting={submitting}
         />
       </div>
 
-      {canFinish && (
-        <div className="text-center pt-4">
-          <Button variant="outline" onClick={handleFinish} disabled={finishing}>
-            {finishing ? "Gerando relatório..." : "Finalizar diagnóstico"}
+      {canFinish ? (
+        <div className="text-center pt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Continue respondendo para diagnóstico ainda mais preciso.
+          </p>
+          <Button
+            variant="outline"
+            onClick={handleFinish}
+            disabled={finishing}
+            className="border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10 hover:border-primary/60"
+          >
+            {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
           </Button>
+          <p className="text-xs text-muted-foreground">
+            Você atingiu os critérios (40+ perguntas ou 3.500 palavras em 12 áreas).
+          </p>
         </div>
+      ) : (
+        totalAnswers >= 25 && (
+          <p className="text-center pt-4 text-sm text-muted-foreground">
+            Finalizar disponível ao atingir <strong>40 perguntas</strong> ou{" "}
+            <strong>3.500 palavras</strong> em 12 áreas. Faltam{" "}
+            <strong>{Math.max(0, 40 - totalAnswers)} perguntas</strong> pelo critério de quantidade.
+          </p>
+        )
       )}
     </div>
   );

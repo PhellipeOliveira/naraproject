@@ -152,15 +152,31 @@ class DiagnosticService:
         """Verifica se existe diagnóstico em andamento para o email."""
         from app.database import supabase
 
+        email_normalized = (email or "").strip().lower()
+        if not email_normalized:
+            return {"exists": False}
+
         result = (
             supabase.table("diagnostics")
             .select("id, status, current_phase, total_answers, created_at")
-            .eq("email", email)
+            .eq("email", email_normalized)
             .eq("status", "in_progress")
             .order("created_at", desc=True)
             .limit(1)
             .execute()
         )
+        if not result.data or len(result.data) == 0:
+            email_stripped = (email or "").strip()
+            if email_stripped != email_normalized:
+                result = (
+                    supabase.table("diagnostics")
+                    .select("id, status, current_phase, total_answers, created_at")
+                    .eq("email", email_stripped)
+                    .eq("status", "in_progress")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                )
         if result.data and len(result.data) > 0:
             d = result.data[0]
             return {

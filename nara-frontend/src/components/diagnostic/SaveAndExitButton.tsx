@@ -67,7 +67,7 @@ export function SaveAndExitButton({
       <Button
         variant="outline"
         onClick={() => setIsOpen(true)}
-        className="gap-2"
+        className="gap-2 border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10 hover:border-primary/60"
       >
         <LogOut className="h-4 w-4" />
         Sair e Continuar Depois

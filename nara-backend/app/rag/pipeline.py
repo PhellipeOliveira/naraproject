@@ -85,11 +85,12 @@ class NaraDiagnosticPipeline:
     ) -> Dict[str, Any]:
         """Inicia um novo diagnóstico."""
         result_token = f"nara_{uuid.uuid4().hex[:12]}"
+        email_normalized = (email or "").strip().lower()
 
         diagnostic_data: Dict[str, Any] = {
             "user_id": user_id,
             "anonymous_session_id": session_id if not user_id else None,
-            "email": email,
+            "email": email_normalized,
             "full_name": full_name,
             "status": "in_progress",
             "current_phase": 1,
