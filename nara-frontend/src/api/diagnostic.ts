@@ -59,11 +59,15 @@ export async function sendResumeLink(
   return data;
 }
 
+/** Timeout para geração de próximas perguntas (RAG + LLM). Backend pode levar 35–45s; margem extra evita erro no front. */
+const NEXT_QUESTIONS_TIMEOUT_MS = 90_000;
+
 export async function getNextQuestions(
   diagnosticId: string
 ): Promise<NextQuestionsResponse> {
   const { data } = await apiClient.get<NextQuestionsResponse>(
-    `/diagnostic/${diagnosticId}/next-questions`
+    `/diagnostic/${diagnosticId}/next-questions`,
+    { timeout: NEXT_QUESTIONS_TIMEOUT_MS }
   );
   return data;
 }
@@ -102,6 +106,11 @@ export async function getCurrentState(diagnosticId: string) {
   return data;
 }
 
+/** Normaliza e-mail para comparação (trim + minúsculas). */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export async function checkExistingDiagnostic(email: string) {
   const { data } = await apiClient.get<{
     exists: boolean;
@@ -110,6 +119,6 @@ export async function checkExistingDiagnostic(email: string) {
     current_phase?: number;
     total_answers?: number;
     started_at?: string;
-  }>(`/diagnostic/check-existing`, { params: { email } });
+  }>(`/diagnostic/check-existing`, { params: { email: normalizeEmail(email) } });
   return data;
 }

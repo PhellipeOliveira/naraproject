@@ -85,11 +85,12 @@ class NaraDiagnosticPipeline:
     ) -> Dict[str, Any]:
         """Inicia um novo diagnóstico."""
         result_token = f"nara_{uuid.uuid4().hex[:12]}"
+        email_normalized = (email or "").strip().lower()
 
         diagnostic_data: Dict[str, Any] = {
             "user_id": user_id,
             "anonymous_session_id": session_id if not user_id else None,
-            "email": email,
+            "email": email_normalized,
             "full_name": full_name,
             "status": "in_progress",
             "current_phase": 1,
@@ -240,6 +241,8 @@ class NaraDiagnosticPipeline:
             "areas_covered": len(areas_for_eligibility),
         }
 
+    MAX_PHASE = 4  # Constraint do banco: current_phase BETWEEN 1 AND 4
+
     async def generate_next_phase(self, diagnostic_id: str) -> Dict[str, Any]:
         """Gera perguntas para a próxima fase usando RAG+LLM."""
         diag_result = (
@@ -248,6 +251,12 @@ class NaraDiagnosticPipeline:
         diagnostic = diag_result.data
         if not diagnostic:
             raise ValueError("Diagnóstico não encontrado")
+
+        current = diagnostic.get("current_phase", 1)
+        if current >= self.MAX_PHASE:
+            raise ValueError(
+                "Não há próxima fase. Você completou todas as fases. Finalize o diagnóstico para ver seu resultado."
+            )
 
         answers_result = (
             supabase.table("answers")
