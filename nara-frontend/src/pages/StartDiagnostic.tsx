@@ -49,7 +49,7 @@ export default function StartDiagnostic() {
     if (!email) return;
     setIsChecking(true);
     try {
-      const data = await checkExistingDiagnostic(email);
+      const data = await checkExistingDiagnostic((email as string).trim().toLowerCase());
       setExistingDiagnostic(
         data.exists
           ? {
@@ -69,6 +69,21 @@ export default function StartDiagnostic() {
 
   const onSubmit = async (data: FormData) => {
     setStartError(null);
+    const emailNorm = (data.email || "").trim().toLowerCase();
+    try {
+      const existing = await checkExistingDiagnostic(emailNorm);
+      if (existing.exists) {
+        setExistingDiagnostic({
+          exists: true,
+          diagnostic_id: existing.diagnostic_id,
+          total_answers: existing.total_answers,
+          started_at: existing.started_at,
+        });
+        return;
+      }
+    } catch {
+      // segue para iniciar novo
+    }
     const sessionId = getOrCreateSessionId();
     try {
       const result = await startDiagnostic({

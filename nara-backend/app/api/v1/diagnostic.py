@@ -104,9 +104,22 @@ async def submit_answer(request: Request, diagnostic_id: str, payload: AnswerSub
 async def get_next_questions(request: Request, diagnostic_id: str):
     """
     Gera perguntas para a próxima fase (RAG + LLM).
-    Tempo típico de geração: 3-5 segundos.
+    Tempo típico de geração: 3-5 segundos (pode chegar a ~30s em carga).
     """
-    result = await service.get_next_questions(diagnostic_id)
+    try:
+        result = await service.get_next_questions(diagnostic_id)
+    except ValueError as e:
+        msg = str(e) if str(e) else "Diagnóstico não encontrado"
+        if "Não há próxima fase" in msg or "completou todas as fases" in msg:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    except Exception as e:
+        logger.exception("Erro ao gerar próximas perguntas: %s", e)
+        msg = str(e) if str(e) else "Falha ao gerar perguntas (RAG/LLM). Tente novamente em instantes."
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=msg,
+        )
     questions = [
         QuestionResponse(
             id=q.get("id", i),

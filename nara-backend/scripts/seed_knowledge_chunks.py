@@ -1,41 +1,37 @@
 """
-Script para popular a tabela knowledge_chunks com dados mínimos e gerar embeddings.
+Script para popular a tabela knowledge_chunks com a base metodológica NARA.
 
 Uso (na raiz do nara-backend):
   python -m scripts.seed_knowledge_chunks
 
 Requer: SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_API_KEY no .env
+A versão gravada nos chunks é definida por RAG_CHUNK_VERSION em config.py.
 """
 import asyncio
 import logging
 import sys
 from pathlib import Path
 
-# Garantir que app seja encontrado
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
 from app.database import supabase
 from app.rag.embeddings import generate_embeddings_batch
-
-from scripts.seed_knowledge_chunks_data import CHUNKS
 from scripts.seed_knowledge_chunks_data_v2 import CHUNKS_V2
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 
-async def seed_version(chunks: list[dict], version: int) -> None:
-    """Seed chunks com versão específica."""
+async def seed_chunks(chunks: list[dict]) -> None:
+    """Gera embeddings e insere chunks na tabela knowledge_chunks."""
     texts = [c["content"] for c in chunks]
-    logger.info("Gerando embeddings para %d chunks (version %d)...", len(texts), version)
+    logger.info("Gerando embeddings para %d chunks...", len(texts))
     embeddings = await generate_embeddings_batch(texts)
 
     rows = []
     for i, chunk in enumerate(chunks):
-        # Suporte para sintomas ou sintomas_comportamentais
         sintomas = chunk.get("sintomas_comportamentais") or chunk.get("sintomas", [])
-        
         row = {
             "chapter": chunk["chapter"],
             "section": chunk.get("section"),
@@ -52,8 +48,9 @@ async def seed_version(chunks: list[dict], version: int) -> None:
                 "tipo_conteudo": chunk.get("tipo_conteudo"),
                 "dominio": chunk.get("dominio", []),
                 "nivel_maturidade": chunk.get("nivel_maturidade"),
-                "source": "seed_script_v2" if version == 2 else "seed_script",
-                "version": f"{version}.0",
+                "chunk_strategy": settings.RAG_CHUNK_STRATEGY,
+                "source": "seed_script",
+                "version": str(settings.RAG_CHUNK_VERSION),
             },
             "motor_motivacional": chunk.get("motor_motivacional"),
             "estagio_jornada": chunk.get("estagio_jornada"),
@@ -66,13 +63,13 @@ async def seed_version(chunks: list[dict], version: int) -> None:
             "tipo_conteudo": chunk.get("tipo_conteudo"),
             "dominio": chunk.get("dominio"),
             "is_active": True,
-            "version": version,
+            "version": settings.RAG_CHUNK_VERSION,
         }
         rows.append(row)
 
-    logger.info("Inserindo %d chunks (version %d) no Supabase...", len(rows), version)
+    logger.info("Inserindo %d chunks no Supabase...", len(rows))
     result = supabase.table("knowledge_chunks").insert(rows).execute()
-    logger.info("Inseridos %d registros (version %d).", len(result.data), version)
+    logger.info("Inseridos %d registros.", len(result.data))
 
 
 async def main() -> None:
@@ -83,14 +80,8 @@ async def main() -> None:
         logger.error("Defina OPENAI_API_KEY no .env para gerar embeddings")
         sys.exit(1)
 
-    # Seed version 1 (opcional - descomente se quiser manter v1)
-    # logger.info("=== SEEDING VERSION 1 ===")
-    # await seed_version(CHUNKS, version=1)
-
-    # Seed version 2 (Base Metodológica NARA refinada)
-    logger.info("=== SEEDING VERSION 2 (Base Metodológica Refinada) ===")
-    await seed_version(CHUNKS_V2, version=2)
-
+    logger.info("Iniciando seed — versão %d (Base Metodológica NARA)", settings.RAG_CHUNK_VERSION)
+    await seed_chunks(CHUNKS_V2)
     logger.info("Pronto. Execute a migração de índice vetorial se ainda não tiver executado.")
 
 

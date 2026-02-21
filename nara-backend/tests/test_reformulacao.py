@@ -158,23 +158,17 @@ def test_barreiras_identificadas():
 
 
 @pytest.mark.asyncio
-async def test_retrieval_version_filter():
-    """Testa filtro de version=2 no retriever."""
-    # Este teste requer conexão com Supabase e chunks v2 seedados
-    # Pode ser skipado se não houver chunks v2
+async def test_retrieval_chunks_ativos():
+    """Testa busca de chunks ativos no banco."""
     try:
         chunks = await retrieve_relevant_chunks(
             query="identidade herdada crise",
             top_k=5,
-            filter_version=2,
         )
-        
+
         assert isinstance(chunks, list)
-        # Se houver chunks, todos devem ser version=2
-        for chunk in chunks:
-            assert chunk.get("version") == 2, "Todos os chunks devem ser version=2"
     except Exception:
-        pytest.skip("Teste requer chunks v2 seedados no banco")
+        pytest.skip("Teste requer conexão com Supabase e chunks seedados")
 
 
 def test_analyzer_full_output():

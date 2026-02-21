@@ -345,7 +345,7 @@ class EmailService:
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f9fafb;">
             <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <h1 style="color: #6366f1; font-size: 24px;">Olá, {user_name}! 👋</h1>
-                <p style="color: #374151; line-height: 1.6;">Continue seu Diagnóstico NARA de onde parou.</p>
+                <p style="color: #374151; line-height: 1.6;">Continue seu Diagnóstico. Nara vai surpreender você!</p>
                 <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
                     <p style="margin: 0;"><strong>Progresso:</strong> {progress}%</p>
                 </div>
