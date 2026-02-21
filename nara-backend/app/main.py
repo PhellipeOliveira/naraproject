@@ -43,7 +43,7 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 
-# CORS
+# CORS (com allow_credentials=True, métodos e headers devem ser explícitos, não "*")
 origins = settings.CORS_ORIGINS
 if isinstance(origins, str):
     origins = [o.strip() for o in origins.split(",") if o.strip()]
@@ -51,8 +51,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-Request-ID", "Origin"],
     expose_headers=["*"],
 )
 app.add_middleware(SlowAPIMiddleware)
