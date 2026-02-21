@@ -528,7 +528,15 @@ class NaraDiagnosticPipeline:
 
             # Extrair vetor de estado do report
             vetor_estado = report.get("vetor_estado", {})
-            
+            # overall_score no banco é NUMÉRICO; nunca enviar nome de estágio (ex.: "Desenvolver")
+            raw_score = report.get("overall_score")
+            overall_score_legacy = None
+            if raw_score is not None and isinstance(raw_score, (int, float)):
+                overall_score_legacy = float(raw_score)
+            # Se o report não devolver número, deixar None ou padrão; phase_identified guarda o estágio (string)
+            if overall_score_legacy is None:
+                overall_score_legacy = 5.0  # padrão para compatibilidade com coluna NOT NULL se existir
+
             result_data = {
                 "diagnostic_id": diagnostic_id,
                 # Novos campos (V2)
@@ -536,8 +544,8 @@ class NaraDiagnosticPipeline:
                 "memorias_vermelhas": report.get("memorias_vermelhas", []),
                 "areas_silenciadas": report.get("areas_silenciadas", []),
                 "ancoras_sugeridas": report.get("ancoras_sugeridas", []),
-                # Campos legacy (manter por compatibilidade)
-                "overall_score": vetor_estado.get("estagio_jornada", "Germinar") if not report.get("overall_score") else report.get("overall_score"),
+                # Campos legacy (manter por compatibilidade) — overall_score sempre numérico
+                "overall_score": overall_score_legacy,
                 "area_scores": scores_by_area,
                 "motor_scores": {
                     "dominante": vetor_estado.get("motor_dominante"),
