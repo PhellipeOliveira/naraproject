@@ -301,9 +301,11 @@ export default function Diagnostic() {
                 <p className="text-sm text-muted-foreground">
                   Você já tem {totalAnswers} respostas (acima do mínimo). Clique abaixo para gerar seu relatório.
                 </p>
-                <Button onClick={handleFinish} disabled={finishing}>
-                  {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
-                </Button>
+                <div className="w-full flex justify-center">
+                  <Button onClick={handleFinish} disabled={finishing}>
+                    {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
+                  </Button>
+                </div>
               </>
             ) : (
               <>

@@ -62,6 +62,155 @@ class NaraDiagnosticPipeline:
     """
 
     AREAS = AREAS  # 12 Áreas Estruturantes (01_FUNDAMENTOS); mesma ordem que tabela areas
+    ADAPTIVE_TEMPLATES: dict[str, dict[str, Any]] = {
+        "autocritica_alta": {
+            "trigger_pattern": "autocritica_alta",
+            "ponto_entrada": "Emocional",
+            "tecnica_tcc": "Flecha Descendente",
+            "eixo_alvo": "Narrativa",
+            "etapa_assuncao": "Reconhecer",
+            "ancoras_sugeridas": ["Tom", "Rituais Matinais", "Gestão de Energia"],
+            "templates": [
+                {
+                    "area": "Vida Pessoal",
+                    "type": "open_long",
+                    "text": "Você trouxe sinais de autocrítica forte no eixo Narrativa. De onde essa voz crítica sobre quem você é hoje parece vir na sua história e que crença ela tenta manter viva?",
+                },
+                {
+                    "area": "Saúde Mental",
+                    "type": "open_long",
+                    "text": "Se você se tratasse como trataria alguém que ama, qual frase substituiria a narrativa atual e te aproximaria de quem você quer se tornar nesta área?",
+                },
+            ],
+        },
+        "conflito_trabalho_familia": {
+            "trigger_pattern": "conflito_trabalho_familia",
+            "ponto_entrada": "Simbólico",
+            "tecnica_tcc": "Questionamento Socrático",
+            "eixo_alvo": "Identidade",
+            "etapa_assuncao": "Modelar",
+            "ancoras_sugeridas": ["Limites", "Rituais Noturnos", "Testemunhas"],
+            "templates": [
+                {
+                    "area": "Vida Familiar",
+                    "type": "open_long",
+                    "text": "Quando você prioriza o trabalho, qual valor inegociável da sua Identidade sente que está sendo comprometido na sua identidade de hoje?",
+                },
+                {
+                    "area": "Vida Profissional",
+                    "type": "open_long",
+                    "text": "Que medo aparece quando você tenta alinhar carreira e família à pessoa que você quer se tornar?",
+                },
+            ],
+        },
+        "falta_proposito": {
+            "trigger_pattern": "falta_proposito",
+            "ponto_entrada": "Existencial",
+            "tecnica_tcc": "Descatastrofização",
+            "eixo_alvo": "Identidade",
+            "etapa_assuncao": "Modelar",
+            "ancoras_sugeridas": ["Referências", "Tarefas Identitárias", "Grupo"],
+            "templates": [
+                {
+                    "area": "Saúde Espiritual",
+                    "type": "open_long",
+                    "text": "Descreva um momento em que sua Identidade esteve alinhada ao propósito. Que elementos desse cenário podem voltar como referência para quem você quer se tornar?",
+                },
+                {
+                    "area": "Inovação",
+                    "type": "open_long",
+                    "text": "Se o medo de falhar saísse de cena por sete dias, qual projeto você iniciaria para provar, em hábito, a identidade que deseja assumir?",
+                },
+            ],
+        },
+        "transformacao_personagem": {
+            "trigger_pattern": "transformacao_personagem",
+            "ponto_entrada": "Simbólico",
+            "tecnica_tcc": "Reestruturação Cognitiva Escrita",
+            "eixo_alvo": "Identidade",
+            "etapa_assuncao": "Assumir",
+            "ancoras_sugeridas": ["Marcos", "Tarefas Identitárias", "Exposição Gradual"],
+            "templates": [
+                {
+                    "area": "Vida Pessoal",
+                    "type": "open_long",
+                    "text": "Qual personagem antigo de quem você é hoje você ainda tenta sustentar mesmo sabendo que ele já não combina com a identidade que deseja assumir nesta fase?",
+                },
+                {
+                    "area": "Inovação",
+                    "type": "open_long",
+                    "text": "Que personagem novo você evita assumir por medo de julgamento, mesmo sabendo que ele é coerente com seus valores e princípios?",
+                },
+            ],
+        },
+        "incongruencia_cultura": {
+            "trigger_pattern": "incongruencia_cultura",
+            "ponto_entrada": "Existencial",
+            "tecnica_tcc": "Questionamento Socrático",
+            "eixo_alvo": "Identidade",
+            "etapa_assuncao": "Reconhecer",
+            "ancoras_sugeridas": ["Grupo", "Ambientes", "Limites"],
+            "templates": [
+                {
+                    "area": "Vida Profissional",
+                    "type": "open_long",
+                    "text": "Em que contexto o ambiente atual exige um personagem que contradiz seus valores centrais e desorganiza seu eixo Identidade?",
+                },
+                {
+                    "area": "Vida Social",
+                    "type": "open_long",
+                    "text": "Em quais relações você sente que precisa diminuir sua identidade para manter pertencimento, e que limite protegeria quem você quer se tornar?",
+                },
+            ],
+        },
+        "identidade_herdada": {
+            "trigger_pattern": "identidade_herdada",
+            "ponto_entrada": "Simbolico",
+            "tecnica_tcc": "Flecha Descendente",
+            "eixo_alvo": "Identidade",
+            "etapa_assuncao": "Reconhecer",
+            "ancoras_sugeridas": ["Referências", "Grupo", "Vocabulário"],
+            "templates": [
+                {
+                    "area": "Vida Familiar",
+                    "type": "open_long",
+                    "text": "Você mencionou padrões herdados. Qual desses padrões representa quem você escolheu ser — e qual é apenas um papel que você ainda carrega sem ter escolhido?",
+                },
+                {
+                    "area": "Vida Pessoal",
+                    "type": "open_long",
+                    "text": "Se você pudesse batizar o personagem que está deixando para trás e o personagem que está assumindo agora, que nomes daria a cada um?",
+                },
+            ],
+        },
+        "paralisia_decisoria": {
+            "trigger_pattern": "paralisia_decisoria",
+            "ponto_entrada": "Comportamental",
+            "tecnica_tcc": "Descatastrofização",
+            "eixo_alvo": "Habitos",
+            "etapa_assuncao": "Assumir",
+            "ancoras_sugeridas": ["Microentregas", "Marcos", "Tarefas Identitárias"],
+            "templates": [
+                {
+                    "area": "Vida Profissional",
+                    "type": "open_long",
+                    "text": "Quando você imagina tomar aquela decisão que está adiando, o que de pior pode acontecer? E se esse pior cenário acontecesse, o que você faria?",
+                },
+                {
+                    "area": "Vida Pessoal",
+                    "type": "open_long",
+                    "text": "Se você agisse agora como a pessoa que deseja ser — com os valores que declarou — qual seria a menor ação possível que essa pessoa tomaria hoje?",
+                },
+            ],
+        },
+        "area_pouca_cobertura": {
+            "trigger_pattern": "area_pouca_cobertura",
+            "ponto_entrada": "Comportamental",
+            "tecnica_tcc": "Questionamento Socrático",
+            "ancoras_sugeridas": ["Microentregas", "Limites", "Rituais Matinais"],
+            "templates": [],
+        },
+    }
 
     def __init__(self) -> None:
         self.baseline_questions = self._load_baseline_questions()
@@ -290,10 +439,30 @@ class NaraDiagnosticPipeline:
         
         next_phase = diagnostic["current_phase"] + 1
 
+        adaptive_trigger_ids = self._detect_trigger_patterns(answers, underrepresented)
+        adaptive_templates = [
+            self.ADAPTIVE_TEMPLATES[t]
+            for t in adaptive_trigger_ids
+            if t in self.ADAPTIVE_TEMPLATES
+        ]
+        if underrepresented:
+            dynamic_templates = [
+                {
+                    "area": area,
+                    "type": "open_long",
+                    "text": f"Percebi menos pistas sobre {area} até aqui. O que está mais vivo nessa área no seu momento atual?",
+                }
+                for area in underrepresented[:3]
+            ]
+            for template in adaptive_templates:
+                if template.get("trigger_pattern") == "area_pouca_cobertura":
+                    template["templates"] = dynamic_templates
+
         rag_context = await retrieve_for_question_generation(
             user_responses=answers,
             underrepresented_areas=underrepresented,
             phase=next_phase,
+            context_analysis=context_analysis,
         )
         if not rag_context or not rag_context.strip():
             logger.warning(
@@ -301,13 +470,61 @@ class NaraDiagnosticPipeline:
                 next_phase,
             )
 
-        questions = await generate_adaptive_questions(
-            user_responses=answers,
-            underrepresented_areas=underrepresented,
-            identified_patterns=patterns,
-            rag_context=rag_context,
-            phase=next_phase,
-        )
+        # Camada fixa: templates entram de forma determinística (não dependem de arbitração do LLM).
+        template_questions_raw: List[Dict[str, Any]] = []
+        for template in adaptive_templates:
+            for question in template.get("templates", []):
+                if isinstance(question, dict) and question.get("text"):
+                    template_questions_raw.append(question)
+
+        dedup_texts: set[str] = set()
+        template_questions: List[Dict[str, Any]] = []
+        for question in template_questions_raw:
+            normalized_text = str(question.get("text", "")).strip().lower()
+            if not normalized_text or normalized_text in dedup_texts:
+                continue
+            dedup_texts.add(normalized_text)
+            template_questions.append({
+                "area": question.get("area", "Geral"),
+                "type": "open_long",
+                "text": question.get("text", ""),
+                "follow_up_hint": question.get("follow_up_hint", "Pergunta orientada por gatilho metodológico."),
+            })
+            if len(template_questions) >= 6:
+                break
+
+        llm_question_count = max(0, 15 - len(template_questions))
+        llm_questions: List[Dict[str, Any]] = []
+        if llm_question_count > 0:
+            llm_generated = await generate_adaptive_questions(
+                user_responses=answers,
+                underrepresented_areas=underrepresented,
+                identified_patterns=patterns,
+                rag_context=rag_context,
+                phase=next_phase,
+                adaptive_templates=[],
+                max_questions=llm_question_count,
+            )
+            llm_questions = [
+                {
+                    "area": q.get("area", "Geral"),
+                    "type": q.get("type", "open_long"),
+                    "text": q.get("text", ""),
+                    "follow_up_hint": q.get("follow_up_hint", ""),
+                }
+                for q in llm_generated
+                if q.get("text")
+            ]
+        combined_questions = template_questions + llm_questions
+        questions: List[Dict[str, Any]] = []
+        for idx, q in enumerate(combined_questions[:15], start=1):
+            questions.append({
+                "id": (next_phase - 1) * 15 + idx,
+                "area": q.get("area", "Geral"),
+                "type": "open_long",
+                "text": q.get("text", ""),
+                "follow_up_hint": q.get("follow_up_hint", ""),
+            })
 
         supabase.table("diagnostics").update({
             "current_phase": next_phase,
@@ -457,6 +674,88 @@ class NaraDiagnosticPipeline:
 
         return list(set(patterns))
 
+    def _detect_trigger_patterns(
+        self,
+        answers: List[Dict[str, Any]],
+        underrepresented_areas: List[str],
+    ) -> List[str]:
+        """Detecta gatilhos da lógica adaptativa da Parte VI.3."""
+        combined_text = " ".join(
+            [((a.get("answer_value") or {}).get("text") or "").lower() for a in answers]
+        )
+        triggers: List[str] = []
+
+        autocritica_terms = ["não sou bom", "não sou boa", "fracasso", "incompetente", "me cobro", "autocrítica"]
+        if any(term in combined_text for term in autocritica_terms):
+            triggers.append("autocritica_alta")
+
+        trabalho_terms = ["trabalho", "carreira", "profissional", "empresa"]
+        familia_terms = ["família", "familia", "filho", "filha", "casa", "casamento"]
+        if any(t in combined_text for t in trabalho_terms) and any(t in combined_text for t in familia_terms):
+            triggers.append("conflito_trabalho_familia")
+
+        proposito_terms = ["não sei meu propósito", "sem sentido", "vazio", "perdido", "perdida", "não sei quem sou"]
+        if any(term in combined_text for term in proposito_terms):
+            triggers.append("falta_proposito")
+
+        transformacao_terms = [
+            "sempre fui assim",
+            "não consigo mudar",
+            "papel de",
+            "deixar para trás",
+            "medo de crescer",
+            "apego ao passado",
+        ]
+        if any(term in combined_text for term in transformacao_terms):
+            triggers.append("transformacao_personagem")
+
+        incongruencia_terms = [
+            "não me encaixo",
+            "ambiente tóxico",
+            "fingir que sou",
+            "cultura da empresa",
+            "não combina comigo",
+            "me adapto para agradar",
+        ]
+        if any(term in combined_text for term in incongruencia_terms):
+            triggers.append("incongruencia_cultura")
+
+        herdada_terms = [
+            "minha família sempre",
+            "minha familia sempre",
+            "fui criado assim",
+            "fui criada assim",
+            "desde pequeno aprendi",
+            "desde pequena aprendi",
+            "herdei",
+            "minha criação",
+            "minha criacao",
+            "meus pais sempre disseram",
+        ]
+        if any(term in combined_text for term in herdada_terms):
+            triggers.append("identidade_herdada")
+
+        paralisia_terms = [
+            "não sei o que fazer",
+            "nao sei o que fazer",
+            "fico travado",
+            "fico travada",
+            "tomo decisões erradas",
+            "tomo decisoes erradas",
+            "não consigo decidir",
+            "nao consigo decidir",
+            "paralisia",
+            "não avanço",
+            "nao avanco",
+        ]
+        if any(term in combined_text for term in paralisia_terms):
+            triggers.append("paralisia_decisoria")
+
+        if underrepresented_areas:
+            triggers.append("area_pouca_cobertura")
+
+        return list(dict.fromkeys(triggers))
+
     async def finish(self, diagnostic_id: str) -> Dict[str, Any]:
         """Finaliza o diagnóstico e gera o relatório completo."""
         eligibility = await self.check_eligibility(diagnostic_id)
@@ -507,8 +806,12 @@ class NaraDiagnosticPipeline:
                     "pontos_entrada": context_analysis.get("pontos_entrada", []),
                     "ancoras_sugeridas": context_analysis.get("ancoras_sugeridas", []),
                     "nivel_maturidade": context_analysis.get("nivel_maturidade"),
+                    "nivel_identidade_conflito": context_analysis.get("nivel_identidade_conflito"),
+                    "fatores_diagnostico_rapido": context_analysis.get("fatores_diagnostico_rapido", {}),
                     "tom_emocional": context_analysis.get("tom_emocional"),
                     "areas_criticas": context_analysis.get("areas_criticas", []),
+                    "gap_mx": context_analysis.get("gap_mx", {}),
+                    "incongruencias_simbolicas": context_analysis.get("incongruencias_simbolicas", []),
                     "padroes": patterns,
                 }
             }).eq("id", diagnostic_id).execute()
@@ -517,6 +820,7 @@ class NaraDiagnosticPipeline:
                 diagnostic_id=diagnostic_id,
                 scores_by_area=scores_by_area,
                 all_responses=answers,
+                context_analysis=context_analysis,
             )
 
             report = await generate_final_report(
@@ -528,7 +832,15 @@ class NaraDiagnosticPipeline:
 
             # Extrair vetor de estado do report
             vetor_estado = report.get("vetor_estado", {})
-            
+            # overall_score no banco é NUMÉRICO; nunca enviar nome de estágio (ex.: "Desenvolver")
+            raw_score = report.get("overall_score")
+            overall_score_legacy = None
+            if raw_score is not None and isinstance(raw_score, (int, float)):
+                overall_score_legacy = float(raw_score)
+            # Se o report não devolver número, deixar None ou padrão; phase_identified guarda o estágio (string)
+            if overall_score_legacy is None:
+                overall_score_legacy = 5.0  # padrão para compatibilidade com coluna NOT NULL se existir
+
             result_data = {
                 "diagnostic_id": diagnostic_id,
                 # Novos campos (V2)
@@ -536,8 +848,8 @@ class NaraDiagnosticPipeline:
                 "memorias_vermelhas": report.get("memorias_vermelhas", []),
                 "areas_silenciadas": report.get("areas_silenciadas", []),
                 "ancoras_sugeridas": report.get("ancoras_sugeridas", []),
-                # Campos legacy (manter por compatibilidade)
-                "overall_score": vetor_estado.get("estagio_jornada", "Germinar") if not report.get("overall_score") else report.get("overall_score"),
+                # Campos legacy (manter por compatibilidade) — overall_score sempre numérico
+                "overall_score": overall_score_legacy,
                 "area_scores": scores_by_area,
                 "motor_scores": {
                     "dominante": vetor_estado.get("motor_dominante"),

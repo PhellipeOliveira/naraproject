@@ -1,6 +1,8 @@
 """Endpoints de diagnóstico."""
 import logging
+from io import BytesIO
 from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import EmailStr
 
 from app.models.diagnostic import (
@@ -10,6 +12,12 @@ from app.models.diagnostic import (
     DiagnosticStartResponse,
     EligibilityResponse,
     DiagnosticResultResponse,
+    MicroDiagnosticStartRequest,
+    MicroDiagnosticStartResponse,
+    MicroDiagnosticStateResponse,
+    MicroDiagnosticSubmitRequest,
+    MicroReportRequest,
+    MicroReportResponse,
     NextQuestionsResponse,
     QuestionResponse,
 )
@@ -208,6 +216,173 @@ async def get_result_by_token(request: Request, token: str):
     return DiagnosticResultResponse(**result)
 
 
+@router.get("/result/{token}/pdf")
+@limiter.limit("10/minute")
+async def get_result_pdf_by_token(request: Request, token: str):
+    """Baixa versão PDF do diagnóstico pelo token público."""
+    try:
+        pdf_bytes = await service.get_result_pdf_by_token(token)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao gerar PDF do resultado")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erro ao gerar PDF.")
+
+    filename = f"diagnostico_nara_{token}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/result/{token}/micro-report", response_model=MicroReportResponse)
+@limiter.limit("20/minute")
+async def create_micro_report(request: Request, token: str, payload: MicroReportRequest):
+    """Gera micro-relatório por área para o token informado."""
+    try:
+        result = await service.generate_micro_report(token, payload.area)
+        return MicroReportResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao gerar micro-relatório")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao gerar micro-relatório.",
+        )
+
+
+@router.post("/result/{token}/micro-diagnostic/start", response_model=MicroDiagnosticStartResponse)
+@limiter.limit("10/minute")
+async def start_micro_diagnostic(
+    request: Request, token: str, payload: MicroDiagnosticStartRequest
+):
+    """Inicia micro-diagnóstico de 5 perguntas em área escolhida."""
+    try:
+        result = await service.start_micro_diagnostic(token, payload.area)
+        questions = [
+            QuestionResponse(
+                id=q.get("id", i),
+                area=q.get("area", "Geral"),
+                type=q.get("type", "open_long"),
+                text=q.get("text", ""),
+                follow_up_hint=q.get("follow_up_hint"),
+            )
+            for i, q in enumerate(result.get("questions", []), 1)
+        ]
+        return MicroDiagnosticStartResponse(
+            micro_id=result["micro_id"],
+            status=result["status"],
+            phase=result["phase"],
+            questions=questions,
+            total_questions=result["total_questions"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao iniciar micro-diagnóstico")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao iniciar micro-diagnóstico.",
+        )
+
+
+@router.post("/result/{token}/micro-diagnostic/{micro_id}/submit", response_model=MicroDiagnosticStateResponse)
+@limiter.limit("30/minute")
+async def submit_micro_diagnostic(
+    request: Request,
+    token: str,
+    micro_id: str,
+    payload: MicroDiagnosticSubmitRequest,
+):
+    """Submete respostas da fase atual do micro-diagnóstico."""
+    try:
+        result = await service.submit_micro_diagnostic_answers(
+            token,
+            micro_id,
+            [a.model_dump() for a in payload.answers],
+        )
+        questions = [
+            QuestionResponse(
+                id=q.get("id", i),
+                area=q.get("area", "Geral"),
+                type=q.get("type", "open_long"),
+                text=q.get("text", ""),
+                follow_up_hint=q.get("follow_up_hint"),
+            )
+            for i, q in enumerate(result.get("questions", []), 1)
+        ]
+        return MicroDiagnosticStateResponse(
+            micro_id=result["micro_id"],
+            status=result["status"],
+            phase=result["phase"],
+            questions=questions,
+            total_questions=result["total_questions"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao submeter micro-diagnóstico")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao submeter respostas do micro-diagnóstico.",
+        )
+
+
+@router.get("/result/{token}/micro-diagnostic/{micro_id}", response_model=MicroDiagnosticStateResponse)
+@limiter.limit("30/minute")
+async def get_micro_diagnostic_state(request: Request, token: str, micro_id: str):
+    """Consulta estado atual do micro-diagnóstico."""
+    try:
+        result = await service.get_micro_diagnostic(token, micro_id)
+        questions = [
+            QuestionResponse(
+                id=q.get("id", i),
+                area=q.get("area", "Geral"),
+                type=q.get("type", "open_long"),
+                text=q.get("text", ""),
+                follow_up_hint=q.get("follow_up_hint"),
+            )
+            for i, q in enumerate(result.get("questions", []), 1)
+        ]
+        return MicroDiagnosticStateResponse(
+            micro_id=result["micro_id"],
+            status=result["status"],
+            phase=result["phase"],
+            questions=questions,
+            total_questions=result["total_questions"],
+            result=result.get("result"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao consultar micro-diagnóstico")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao consultar micro-diagnóstico.",
+        )
+
+
+@router.post("/result/{token}/micro-diagnostic/{micro_id}/finish", response_model=MicroReportResponse)
+@limiter.limit("10/minute")
+async def finish_micro_diagnostic(request: Request, token: str, micro_id: str):
+    """Finaliza micro-diagnóstico e retorna micro-relatório resultante."""
+    try:
+        result = await service.finish_micro_diagnostic(token, micro_id)
+        return MicroReportResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao finalizar micro-diagnóstico")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao finalizar micro-diagnóstico.",
+        )
+
+
 @router.get("/{diagnostic_id}/result", response_model=DiagnosticResultResponse)
 @limiter.limit("30/minute")
 async def get_result(request: Request, diagnostic_id: str):
@@ -244,9 +419,12 @@ async def send_resume_link(request: Request, diagnostic_id: str):
     
     diagnostic = diag_result.data
     
-    # Calcular progresso
-    total_answers = diagnostic.get("total_answers", 0)
-    progress = min(100, int((total_answers / 40) * 100))
+    # Buscar elegibilidade detalhada para enriquecer o email de retomada
+    eligibility = await service.check_eligibility(diagnostic_id)
+    total_answers = int(eligibility["criteria"]["questions"]["current"])
+    areas_covered = int(eligibility["criteria"]["coverage"]["current"])
+    progress = min(100, int(eligibility.get("overall_progress", 0)))
+    current_phase = int(diagnostic.get("current_phase", 1))
     
     # Enviar email
     try:
@@ -254,7 +432,11 @@ async def send_resume_link(request: Request, diagnostic_id: str):
             to=diagnostic["email"],
             user_name=diagnostic.get("full_name"),
             diagnostic_id=diagnostic_id,
-            progress=progress
+            progress=progress,
+            phase=current_phase,
+            total_answers=total_answers,
+            areas_covered=areas_covered,
+            can_finish=bool(eligibility.get("can_finish", False)),
         )
         
         return {

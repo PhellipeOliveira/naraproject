@@ -24,7 +24,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.config import settings
 from app.database import supabase
 from app.rag.embeddings import generate_embeddings_batch
-from app.rag.ingest import ChunkStrategy, build_chunks_from_docs, chunks_to_knowledge_rows
+from app.rag.ingest import (
+    ChunkStrategy,
+    build_chunks_from_docs,
+    chunks_to_knowledge_rows,
+    enrich_chunks_metadata_with_llm,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -73,6 +78,11 @@ async def main() -> None:
         default="size",
         help="size=por tamanho, semantic=por parágrafos, both=os dois (default: size)",
     )
+    parser.add_argument(
+        "--skip-metadata-enrichment",
+        action="store_true",
+        help="Desativa classificação LLM de metadados (motor/crise/ponto_entrada).",
+    )
     args = parser.parse_args()
 
     if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_KEY:
@@ -119,6 +129,9 @@ async def main() -> None:
         strategy=strategy,
     )
     logger.info("Total de chunks gerados: %d", len(chunks))
+    if not args.skip_metadata_enrichment and not args.dry_run:
+        logger.info("Enriquecendo metadados dos chunks via LLM...")
+        chunks = await enrich_chunks_metadata_with_llm(chunks)
 
     if not chunks:
         logger.warning("Nenhum chunk gerado. Verifique se há arquivos .md em %s", docs_dir)

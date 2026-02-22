@@ -155,7 +155,7 @@ class AnalyticsService:
             logger.error(f"Error fetching aggregated metrics: {e}")
             return []
     
-    async def get_dashboard_summary(self) -> Dict[str, Any]:
+    async def get_dashboard_summary(self, days: int = 7) -> Dict[str, Any]:
         """
         Obtém resumo completo para dashboard (métricas principais).
         
@@ -163,8 +163,8 @@ class AnalyticsService:
             Dicionário com todas as métricas principais
         """
         try:
-            # Métricas dos últimos 7 dias
-            realtime = await self.get_realtime_metrics(days=7)
+            # Métricas dos últimos N dias
+            realtime = await self.get_realtime_metrics(days=days)
             
             # Distribuições
             motores = await self.get_motores_distribution()
@@ -181,8 +181,8 @@ class AnalyticsService:
             
             return {
                 "period": {
-                    "days": 7,
-                    "start_date": (date.today() - timedelta(days=6)).isoformat(),
+                    "days": days,
+                    "start_date": (date.today() - timedelta(days=max(days - 1, 0))).isoformat(),
                     "end_date": date.today().isoformat(),
                 },
                 "totals": {
@@ -198,6 +198,21 @@ class AnalyticsService:
         except Exception as e:
             logger.error(f"Error generating dashboard summary: {e}")
             return {}
+
+    async def get_recent_completed_diagnostics(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Lista diagnósticos completados mais recentes para painel do analista."""
+        try:
+            rows = (
+                supabase.table("diagnostic_results")
+                .select("diagnostic_id, motor_dominante, crise_raiz, phase_identified, created_at")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return rows.data or []
+        except Exception as e:
+            logger.error(f"Error fetching recent diagnostics: {e}")
+            return []
     
     async def aggregate_metrics_for_date(self, target_date: Optional[date] = None):
         """

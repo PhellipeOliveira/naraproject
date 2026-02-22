@@ -14,9 +14,10 @@ def get_supabase_client() -> Client:
 
 def get_supabase_anon_client() -> Client:
     """Retorna cliente Supabase com anon key (operações públicas)."""
+    anon_key = settings.SUPABASE_ANON_KEY or settings.SUPABASE_KEY
     return create_client(
         settings.SUPABASE_URL,
-        settings.SUPABASE_KEY,
+        anon_key,
     )
 
 

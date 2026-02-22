@@ -5,6 +5,9 @@ from typing import Any, Dict, Optional
 from app.config import settings
 from app.rag.pipeline import NaraDiagnosticPipeline
 from app.services.email_service import EmailService
+from app.services.micro_diagnostic_service import micro_diagnostic_service
+from app.services.micro_report_service import generate_micro_report_by_token
+from app.services.pdf_service import build_diagnostic_pdf
 
 pipeline = NaraDiagnosticPipeline()
 email_service = EmailService()
@@ -118,6 +121,15 @@ class DiagnosticService:
 
         return report
 
+    def _sanitize_result_for_response(self, data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Garante que overall_score seja numérico (Pydantic espera float); evita 500 se veio string do LLM."""
+        if not data:
+            return data
+        raw = data.get("overall_score")
+        if raw is not None and not isinstance(raw, (int, float)):
+            data = {**data, "overall_score": 5.0}
+        return data
+
     async def get_result(self, diagnostic_id: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado de um diagnóstico finalizado."""
         from app.database import supabase
@@ -131,7 +143,7 @@ class DiagnosticService:
         )
         if not result.data:
             return None
-        return result.data.get("detailed_analysis")
+        return self._sanitize_result_for_response(result.data.get("detailed_analysis"))
 
     async def get_result_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado pelo token público."""
@@ -147,6 +159,38 @@ class DiagnosticService:
         if not diag_result.data:
             return None
         return await self.get_result(str(diag_result.data["id"]))
+
+    async def get_result_pdf_by_token(self, token: str) -> bytes:
+        """Gera PDF do resultado a partir do token público."""
+        result = await self.get_result_by_token(token)
+        if not result:
+            raise ValueError("Resultado não encontrado.")
+        return build_diagnostic_pdf(result)
+
+    async def generate_micro_report(self, token: str, area: str) -> Dict[str, Any]:
+        """Gera micro-relatório por área com cache por diagnóstico/área."""
+        return await generate_micro_report_by_token(token, area)
+
+    async def start_micro_diagnostic(self, token: str, area: str) -> Dict[str, Any]:
+        """Inicia micro-diagnóstico 5Q para uma área."""
+        return await micro_diagnostic_service.start_micro_diagnostic(token, area)
+
+    async def submit_micro_diagnostic_answers(
+        self,
+        token: str,
+        micro_id: str,
+        answers: list[dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Submete respostas da fase atual do micro-diagnóstico."""
+        return await micro_diagnostic_service.submit_phase_answers(token, micro_id, answers)
+
+    async def get_micro_diagnostic(self, token: str, micro_id: str) -> Dict[str, Any]:
+        """Retorna estado atual do micro-diagnóstico."""
+        return await micro_diagnostic_service.get_micro_diagnostic_state(token, micro_id)
+
+    async def finish_micro_diagnostic(self, token: str, micro_id: str) -> Dict[str, Any]:
+        """Finaliza micro-diagnóstico e retorna resultado."""
+        return await micro_diagnostic_service.finish_micro_diagnostic(token, micro_id)
 
     async def check_existing_diagnostic(self, email: str) -> Dict[str, Any]:
         """Verifica se existe diagnóstico em andamento para o email."""

@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 # Retry
 RESEND_MAX_RETRIES = 3
 RESEND_RETRY_DELAY_SECONDS = 2
+PHASE_NAMES = {
+    1: "Diagnóstico Base",
+    2: "Aprofundamento",
+    3: "Integração",
+    4: "Síntese Final",
+}
 
 
 def _validate_email_address(email: str) -> str:
@@ -288,12 +294,20 @@ class EmailService:
         user_name: Optional[str],
         diagnostic_id: str,
         progress: int,
+        phase: Optional[int] = None,
+        total_answers: Optional[int] = None,
+        areas_covered: Optional[int] = None,
+        can_finish: bool = False,
     ) -> dict:
         """Envia link para retomar diagnóstico."""
         html = self._render_template(
             "resume_link",
             user_name=user_name or "Viajante",
             progress=progress,
+            phase=phase,
+            total_answers=total_answers,
+            areas_covered=areas_covered,
+            can_finish=can_finish,
             resume_url=f"{settings.FRONTEND_URL}/diagnostico/{diagnostic_id}/retomar",
         )
         return await self.send_email(
@@ -337,7 +351,21 @@ class EmailService:
         user_name: str,
         progress: int,
         resume_url: str,
+        phase: Optional[int] = None,
+        total_answers: Optional[int] = None,
+        areas_covered: Optional[int] = None,
+        can_finish: bool = False,
     ) -> str:
+        phase_name = PHASE_NAMES.get(phase or 1, "Diagnóstico Base")
+        answered = max(0, int(total_answers or 0))
+        covered = max(0, int(areas_covered or 0))
+        remaining_questions = max(0, 40 - answered)
+        finish_line = (
+            "✓ Você já atingiu os critérios mínimos para finalizar"
+            if can_finish
+            else f"→ Faltam ~{remaining_questions} perguntas para poder finalizar"
+        )
+
         return f"""
         <!DOCTYPE html>
         <html>
@@ -347,7 +375,10 @@ class EmailService:
                 <h1 style="color: #6366f1; font-size: 24px;">Olá, {user_name}! 👋</h1>
                 <p style="color: #374151; line-height: 1.6;">Continue seu Diagnóstico. Nara vai surpreender você!</p>
                 <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <p style="margin: 0;"><strong>Progresso:</strong> {progress}%</p>
+                    <p style="margin: 0 0 8px 0;"><strong>Progresso:</strong> {progress}% (Fase {phase or 1} — {phase_name})</p>
+                    <p style="margin: 0 0 6px 0;">✓ {answered} perguntas respondidas de 40 necessárias</p>
+                    <p style="margin: 0 0 6px 0;">✓ {covered} de 12 áreas cobertas</p>
+                    <p style="margin: 0;">{finish_line}</p>
                 </div>
                 <a href="{resume_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 24px 0;">Continuar Diagnóstico →</a>
                 <p style="color: #6b7280; font-size: 14px; text-align: center; margin-top: 32px;">© NARA.</p>

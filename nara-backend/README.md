@@ -4,20 +4,27 @@ API FastAPI do diagnóstico narrativo NARA.
 
 ## Requisitos
 
-- **Python 3.11 ou 3.12** (não use 3.14: Pydantic ainda não tem suporte e a instalação falha)
+- **Python 3.11 ou 3.12** (não use 3.14: Pydantic/pydantic-core falha ao compilar no 3.14)
 
 ## Setup
 
 ```bash
-# Usar Python 3.11 ou 3.12 (instale com Homebrew se necessário: brew install python@3.12)
+# 1. Garantir Python 3.12 (macOS: brew install python@3.12)
+python3.12 --version   # deve ser 3.12.x
+
+# 2. Criar venv com 3.12 (não use só "python3" se for 3.14)
 python3.12 -m venv .venv
 source .venv/bin/activate   # no Windows: .venv\Scripts\activate
 
+# 3. Instalar dependências e rodar testes
 pip install --upgrade pip
 pip install -r requirements.txt
 cp .env.example .env
 # Edite .env com SUPABASE_URL, SUPABASE_SERVICE_KEY e OPENAI_API_KEY
+python -m pytest --tb=short -q
 ```
+
+**Se `pip install` falhar com erro em `pydantic-core`:** você está usando Python 3.14. Remova o venv (`rm -rf venv` ou `rm -rf .venv`), instale Python 3.12 (`brew install python@3.12`) e crie o venv de novo com `python3.12 -m venv .venv`.
 
 ## Rodar
 
