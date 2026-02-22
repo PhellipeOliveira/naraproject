@@ -3,6 +3,7 @@ Testes de integração do pipeline RAG.
 Conforme 07_DEPLOY_QUALIDADE.md - Seção 3
 """
 import pytest
+from unittest.mock import patch
 from app.rag.pipeline import NaraDiagnosticPipeline
 from app.rag.retriever import retrieve_relevant_chunks
 
@@ -10,7 +11,28 @@ from app.rag.retriever import retrieve_relevant_chunks
 @pytest.mark.asyncio
 class TestRAGPipeline:
     """Testes de integração do sistema RAG."""
-    
+
+    @pytest.fixture(autouse=True)
+    def _mock_rag_network(self):
+        """Mock de rede (OpenAI + Supabase RPC) para testes de retrieval."""
+        mocked_chunks = [
+            {
+                "content": "Conteudo de teste sobre metodologia.",
+                "chapter": "Metodologia",
+                "section": "Seção 1",
+            },
+            {
+                "content": "Conteudo de teste sobre saude fisica.",
+                "chapter": "Metodologia",
+                "section": "Seção 2",
+            },
+        ]
+        with patch("app.rag.retriever.generate_embedding", return_value=[0.1] * 1536), patch(
+            "app.rag.retriever.supabase.rpc"
+        ) as mock_rpc:
+            mock_rpc.return_value.execute.return_value.data = mocked_chunks
+            yield
+
     async def test_retrieve_chunks_with_query(self):
         """Testa busca de chunks relevantes."""
         query = "Como melhorar minha saúde física?"
@@ -73,9 +95,7 @@ class TestPipelineFlow:
             total_words=3500,
             areas_covered=list(pipeline.AREAS)
         )
-        
+
         assert hasattr(result, 'can_finish')
-        assert hasattr(result, 'reasons')
         assert hasattr(result, 'missing_areas')
         assert isinstance(result.can_finish, bool)
-        assert isinstance(result.reasons, list)

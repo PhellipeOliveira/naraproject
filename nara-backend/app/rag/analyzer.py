@@ -32,6 +32,18 @@ logger = logging.getLogger(__name__)
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
+def _compute_silent_areas(responses: list[dict[str, Any]]) -> list[str]:
+    """Computa áreas sem resposta textual no conjunto informado."""
+    covered = {
+        r.get("question_area")
+        for r in responses
+        if r.get("question_area")
+        and isinstance((r.get("answer_value") or {}).get("text"), str)
+        and ((r.get("answer_value") or {}).get("text") or "").strip()
+    }
+    return [area for area in AREAS if area not in covered]
+
+
 async def analyze_answers_context(
     responses: list[dict[str, Any]],
     user_profile: Optional[dict[str, Any]] = None
@@ -130,8 +142,10 @@ async def analyze_answers_context(
         analysis = json.loads(response.choices[0].message.content)
         gap_mx = compute_gap_mx(responses, analysis)
         incongruencias = detect_symbolic_incongruences(analysis)
+        areas_silenciadas = _compute_silent_areas(responses)
         analysis["gap_mx"] = gap_mx
         analysis["incongruencias_simbolicas"] = incongruencias
+        analysis["areas_silenciadas"] = areas_silenciadas
         logger.info(f"Análise contextual concluída: motor={analysis.get('motor_dominante')}")
         return analysis
         
@@ -377,6 +391,7 @@ def _empty_analysis() -> dict[str, Any]:
         "tom_emocional": "neutro",
         "areas_criticas": [],
         "sinais_conflito": [],
+        "areas_silenciadas": [],
         "memorias_vermelhas": [],
         "barreiras_identificadas": [],
         "capital_simbolico": [],

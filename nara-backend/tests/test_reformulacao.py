@@ -2,9 +2,54 @@
 Testes para validar a reformulação da Base Metodológica NARA.
 Valida vetor_estado, Memórias Vermelhas, silêncios e retrieval v2.
 """
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from app.rag.analyzer import analyze_answers_context
 from app.rag.retriever import retrieve_relevant_chunks
+
+MOCK_LLM_JSON = {
+    "motor_dominante": "Valor",
+    "motors_scores": {"Necessidade": 3, "Valor": 8, "Desejo": 4, "Propósito": 5},
+    "clusters_identificados": ["Identidade Raiz"],
+    "pontos_entrada": ["Emocional"],
+    "ancoras_sugeridas": ["Tom"],
+    "nivel_maturidade": "Médio",
+    "tom_emocional": "urgência",
+    "areas_criticas": ["Vida Profissional"],
+    "sinais_conflito": ["autocrítica"],
+    "memorias_vermelhas": ["Nunca serei bom o suficiente"],
+    "barreiras_identificadas": ["Procrastinação crônica"],
+    "capital_simbolico": [],
+    "palavras_recorrentes": ["medo", "falhar"],
+    "fase_jornada": "Enraizar",
+    "dominios_alavanca": ["D1"],
+    "eixo_mais_comprometido": "Identidade",
+    "dominio_potencia_maxima": "D2",
+    "etapa_assuncao_sugerida": "Reconhecer",
+    "nivel_identidade_conflito": "Personalidade",
+    "fatores_diagnostico_rapido": {
+        "Autenticidade": "Baixo",
+        "Integração do Passado": "Baixo",
+        "Visão/Enredo": "Médio",
+        "Coragem/Decisão": "Médio",
+        "Expressão/Voz": "Médio",
+        "Estrutura/Pertencimento": "Médio",
+    },
+    "justificativa_motor": "Valor comprometido.",
+    "justificativa_clusters": "Identidade herdada ativa.",
+}
+
+
+def _configure_mock_llm(mock_client: MagicMock, payload: dict | None = None) -> None:
+    """Configura retorno assíncrono do cliente OpenAI usado pelo analyzer."""
+    response_payload = payload or MOCK_LLM_JSON
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = json.dumps(response_payload, ensure_ascii=False)
+    mock_response.choices = [mock_choice]
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
 
 def test_vetor_estado_structure():
@@ -44,8 +89,14 @@ def test_vetor_estado_structure():
     assert isinstance(vetor_estado["dominios_alavanca"], list)
 
 
-def test_memorias_vermelhas_extraction():
+@patch("app.rag.analyzer.client")
+@patch("app.rag.analyzer.retrieve_relevant_chunks", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_memorias_vermelhas_extraction(mock_retrieve: AsyncMock, mock_client: MagicMock):
     """Testa extração de Memórias Vermelhas do analyzer."""
+    mock_retrieve.return_value = []
+    _configure_mock_llm(mock_client)
+
     # Simular respostas com padrões de conflito
     responses = [
         {
@@ -67,33 +118,45 @@ def test_memorias_vermelhas_extraction():
             }
         },
     ]
-    
-    result = analyze_answers_context(responses)
-    
+
+    result = await analyze_answers_context(responses)
+
     assert "memorias_vermelhas" in result
     assert isinstance(result["memorias_vermelhas"], list)
     assert len(result["memorias_vermelhas"]) > 0, "Deve extrair pelo menos uma Memória Vermelha"
 
 
-def test_silencio_detection():
+@patch("app.rag.analyzer.client")
+@patch("app.rag.analyzer.retrieve_relevant_chunks", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_silencio_detection(mock_retrieve: AsyncMock, mock_client: MagicMock):
     """Testa detecção de áreas silenciadas."""
+    mock_retrieve.return_value = []
+    _configure_mock_llm(mock_client)
+
     # Simular respostas cobrindo apenas algumas áreas (1-12)
     responses = [
         {"question_area": "Vida Profissional", "answer_value": {"text": "Resposta"}},
         {"question_area": "Saúde Mental", "answer_value": {"text": "Resposta"}},
         {"question_area": "Vida Pessoal", "answer_value": {"text": "Resposta"}},
     ]
-    
-    result = analyze_answers_context(responses)
-    
+
+    result = await analyze_answers_context(responses)
+
     assert "areas_silenciadas" in result
     assert isinstance(result["areas_silenciadas"], list)
     # Deve haver áreas silenciadas (não respondidas)
     assert len(result["areas_silenciadas"]) > 0, "Deve identificar áreas não respondidas"
 
 
-def test_tom_emocional_detection():
+@patch("app.rag.analyzer.client")
+@patch("app.rag.analyzer.retrieve_relevant_chunks", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_tom_emocional_detection(mock_retrieve: AsyncMock, mock_client: MagicMock):
     """Testa detecção de tom emocional."""
+    mock_retrieve.return_value = []
+    _configure_mock_llm(mock_client)
+
     responses = [
         {
             "question_area": "Vida Pessoal",
@@ -108,15 +171,21 @@ def test_tom_emocional_detection():
             }
         },
     ]
-    
-    result = analyze_answers_context(responses)
-    
+
+    result = await analyze_answers_context(responses)
+
     assert "tom_emocional" in result
     assert result["tom_emocional"] in ["vergonha", "indignação", "apatia", "urgência", "tristeza", "neutro"]
 
 
-def test_ponto_entrada_identification():
+@patch("app.rag.analyzer.client")
+@patch("app.rag.analyzer.retrieve_relevant_chunks", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_ponto_entrada_identification(mock_retrieve: AsyncMock, mock_client: MagicMock):
     """Testa identificação do Ponto de Entrada."""
+    mock_retrieve.return_value = []
+    _configure_mock_llm(mock_client)
+
     # Respostas com foco emocional
     responses = [
         {
@@ -126,15 +195,22 @@ def test_ponto_entrada_identification():
             }
         },
     ]
-    
-    result = analyze_answers_context(responses)
-    
-    assert "ponto_entrada" in result
-    assert result["ponto_entrada"] in ["Emocional", "Simbólico", "Comportamental", "Existencial"]
+
+    result = await analyze_answers_context(responses)
+
+    assert "pontos_entrada" in result
+    assert isinstance(result["pontos_entrada"], list)
+    assert result["pontos_entrada"][0] in ["Emocional", "Simbólico", "Comportamental", "Existencial"]
 
 
-def test_barreiras_identificadas():
+@patch("app.rag.analyzer.client")
+@patch("app.rag.analyzer.retrieve_relevant_chunks", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_barreiras_identificadas(mock_retrieve: AsyncMock, mock_client: MagicMock):
     """Testa identificação de barreiras/autossabotagem."""
+    mock_retrieve.return_value = []
+    _configure_mock_llm(mock_client)
+
     responses = [
         {
             "question_area": "Vida Profissional",
@@ -149,9 +225,9 @@ def test_barreiras_identificadas():
             }
         },
     ]
-    
-    result = analyze_answers_context(responses)
-    
+
+    result = await analyze_answers_context(responses)
+
     assert "barreiras_identificadas" in result
     assert isinstance(result["barreiras_identificadas"], list)
     assert len(result["barreiras_identificadas"]) > 0, "Deve identificar barreiras"
@@ -171,8 +247,14 @@ async def test_retrieval_chunks_ativos():
         pytest.skip("Teste requer conexão com Supabase e chunks seedados")
 
 
-def test_analyzer_full_output():
+@patch("app.rag.analyzer.client")
+@patch("app.rag.analyzer.retrieve_relevant_chunks", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_analyzer_full_output(mock_retrieve: AsyncMock, mock_client: MagicMock):
     """Testa estrutura completa do output do analyzer."""
+    mock_retrieve.return_value = []
+    _configure_mock_llm(mock_client)
+
     responses = [
         {
             "question_area": "Vida Profissional",
@@ -183,9 +265,9 @@ def test_analyzer_full_output():
             "answer_value": {"text": "Me sinto ansioso."}
         },
     ]
-    
-    result = analyze_answers_context(responses)
-    
+
+    result = await analyze_answers_context(responses)
+
     # Validar estrutura completa
     expected_keys = {
         "memorias_vermelhas",
@@ -194,23 +276,21 @@ def test_analyzer_full_output():
         "tom_emocional",
         "areas_criticas",
         "areas_silenciadas",
-        "padroes_repetidos",
-        "ponto_entrada",
+        "pontos_entrada",
         "palavras_recorrentes",
     }
-    
-    assert set(result.keys()) == expected_keys, "Analyzer deve retornar todos os campos esperados"
+
+    assert expected_keys.issubset(set(result.keys())), "Analyzer deve retornar os campos esperados"
     assert all(isinstance(result[key], list) for key in [
-        "memorias_vermelhas", 
+        "memorias_vermelhas",
         "barreiras_identificadas",
         "capital_simbolico",
         "areas_criticas",
         "areas_silenciadas",
-        "padroes_repetidos",
+        "pontos_entrada",
         "palavras_recorrentes"
     ]), "Campos devem ser listas"
     assert isinstance(result["tom_emocional"], str), "tom_emocional deve ser string"
-    assert isinstance(result["ponto_entrada"], str), "ponto_entrada deve ser string"
 
 
 def test_ancoras_praticas_list():

@@ -419,9 +419,12 @@ async def send_resume_link(request: Request, diagnostic_id: str):
     
     diagnostic = diag_result.data
     
-    # Calcular progresso
-    total_answers = diagnostic.get("total_answers", 0)
-    progress = min(100, int((total_answers / 40) * 100))
+    # Buscar elegibilidade detalhada para enriquecer o email de retomada
+    eligibility = await service.check_eligibility(diagnostic_id)
+    total_answers = int(eligibility["criteria"]["questions"]["current"])
+    areas_covered = int(eligibility["criteria"]["coverage"]["current"])
+    progress = min(100, int(eligibility.get("overall_progress", 0)))
+    current_phase = int(diagnostic.get("current_phase", 1))
     
     # Enviar email
     try:
@@ -429,7 +432,11 @@ async def send_resume_link(request: Request, diagnostic_id: str):
             to=diagnostic["email"],
             user_name=diagnostic.get("full_name"),
             diagnostic_id=diagnostic_id,
-            progress=progress
+            progress=progress,
+            phase=current_phase,
+            total_answers=total_answers,
+            areas_covered=areas_covered,
+            can_finish=bool(eligibility.get("can_finish", False)),
         )
         
         return {

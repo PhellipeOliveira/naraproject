@@ -159,6 +159,8 @@ Gere exatamente {max_questions} perguntas NARRATIVAS E ABERTAS para a Fase {phas
 8. Identifique o Ponto de Entrada nas respostas (Emocional, Simbólico, Comportamental, Existencial)
 9. Se houver templates adaptativos, priorize-os sem repetir perguntas idênticas
 10. Para templates com técnica de TCC, mantenha coerência da técnica na formulação
+11. NUNCA use os símbolos técnicos M1, MX, Gap MX, CN+, "personagem MX" diretamente nas perguntas. Substitua pelo conceito: M1 = "quem você é hoje / o que vive atualmente", MX = "quem você quer se tornar / a vida que deseja".
+12. Use linguagem simples, popular e direta. Evite jargões ou frases complexas. Escreva como se explicasse para alguém de 12 anos: palavras curtas, frases diretas, sem rodeios — mantendo a profundidade emocional e a provocação reflexiva.
 
 ## FORMATO DE SAÍDA
 Retorne um JSON com uma chave "questions" contendo um array de até {max_questions} objetos no formato:
