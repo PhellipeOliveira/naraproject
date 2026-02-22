@@ -68,7 +68,9 @@ class DashboardSummary(BaseModel):
 # ============================================
 
 @router.get("/dashboard", response_model=DashboardSummary)
-async def get_dashboard_summary():
+async def get_dashboard_summary(
+    days: int = Query(default=30, ge=7, le=90, description="Número de dias para visão do dashboard")
+):
     """
     Retorna resumo completo do dashboard com todas as métricas principais.
     
@@ -78,7 +80,7 @@ async def get_dashboard_summary():
     - Distribuição de crises
     - Heatmap de áreas silenciadas
     """
-    summary = await analytics_service.get_dashboard_summary()
+    summary = await analytics_service.get_dashboard_summary(days=days)
     return summary
 
 
@@ -176,7 +178,9 @@ async def get_aggregated_metrics(
 
 
 @router.get("/kpis")
-async def get_kpis():
+async def get_kpis(
+    days: int = Query(default=30, ge=7, le=90, description="Número de dias para cálculo de KPIs")
+):
     """
     Retorna KPIs principais (números grandes para cards).
     
@@ -188,11 +192,12 @@ async def get_kpis():
     - Crise mais comum
     - Área mais silenciada
     """
-    # Métricas dos últimos 30 dias
-    realtime = await analytics_service.get_realtime_metrics(days=30)
+    # Métricas dos últimos N dias
+    realtime = await analytics_service.get_realtime_metrics(days=days)
     motores = await analytics_service.get_motores_distribution()
     crises = await analytics_service.get_crises_distribution()
     areas = await analytics_service.get_areas_silenciadas_heatmap()
+    recent = await analytics_service.get_recent_completed_diagnostics(limit=20)
     
     total_started = sum(day.get("total_diagnostics", 0) for day in realtime)
     total_completed = sum(day.get("completed", 0) for day in realtime)
@@ -204,12 +209,17 @@ async def get_kpis():
     motor_mais_comum = motores[0] if motores else {"motor_dominante": "N/A", "count": 0}
     crise_mais_comum = crises[0] if crises else {"crise_raiz": "N/A", "count": 0}
     area_mais_silenciada = areas[0] if areas else {"area_name": "N/A", "silence_count": 0}
+    avg_words_per_answer = (
+        sum(day.get("avg_words", 0) for day in realtime if isinstance(day.get("avg_words"), (int, float)))
+        / max(1, len([day for day in realtime if isinstance(day.get("avg_words"), (int, float))]))
+    )
     
     return {
-        "period_days": 30,
+        "period_days": days,
         "total_diagnostics_started": total_started,
         "total_diagnostics_completed": total_completed,
         "avg_completion_rate": round(avg_completion_rate, 2),
+        "avg_words_per_answer": round(avg_words_per_answer, 2),
         "motor_mais_comum": {
             "name": motor_mais_comum.get("motor_dominante"),
             "count": motor_mais_comum.get("count"),
@@ -222,6 +232,7 @@ async def get_kpis():
             "name": area_mais_silenciada.get("area_name"),
             "count": area_mais_silenciada.get("silence_count"),
         },
+        "recent_completed_diagnostics": recent,
     }
 
 

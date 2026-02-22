@@ -17,6 +17,8 @@ async def generate_adaptive_questions(
     identified_patterns: list[str],
     rag_context: str,
     phase: int,
+    adaptive_templates: list[dict[str, Any]] | None = None,
+    max_questions: int = 15,
 ) -> list[dict[str, Any]]:
     """
     Gera perguntas adaptativas para a próxima fase.
@@ -29,7 +31,7 @@ async def generate_adaptive_questions(
         phase: Fase atual (2, 3 ou 4)
 
     Returns:
-        Lista de 15 perguntas geradas (id, area, type, text, follow_up_hint).
+        Lista de perguntas geradas (id, area, type, text, follow_up_hint).
     """
     def _answer_summary(r: dict) -> str:
         val = r.get("answer_value") or {}
@@ -85,6 +87,35 @@ reescrever a história que conta para si mesmo.
 ### 6 FASES DA JORNADA:
 Germinar → Enraizar → Desenvolver → Florescer → Frutificar → Realizar
 
+### TÉCNICAS DE TCC (USO ORIENTADO)
+- Flecha Descendente: quando houver autocrítica/medo de fracasso, aprofunde crença central com perguntas de "se isso for verdade, o que isso diz sobre você?"
+- Questionamento Socrático: quando houver crença absoluta, use perguntas que testem evidências e abram narrativa alternativa.
+- Descatastrofização: quando houver pensamento catastrófico, explore pior cenário realista e plano de resposta.
+- Reestruturação Cognitiva Escrita: quando houver loop mental, peça reformulação escrita da frase limitante em versão funcional.
+- Redefinição Cognitiva Assistida: quando houver leitura punitiva de eventos, ressignifique como convite de crescimento.
+- Substituição de Pensamentos Distorcidos: quando houver generalizações ("sempre", "nunca"), proponha frase-âncora alternativa.
+- Imaginação Guiada: quando houver bloqueio identitário, convoque visualização da identidade assumida em ação.
+
+### EIXOS DE TRANSFORMAÇÃO — calibre a pergunta para o eixo comprometido:
+- Eixo Narrativa comprometido -> perguntas de reestruturação cognitiva (TCC):
+  "Que história você tem repetido sobre esta área?"
+- Eixo Identidade comprometido -> perguntas de Assunção Intencional:
+  "Quem você está sendo nesta área? Quem escolheria ser?"
+- Eixo Hábitos comprometido -> perguntas de ação concreta e rotina:
+  "Qual microação coerente com a identidade desejada você poderia começar hoje?"
+
+### DOMÍNIOS TEMÁTICOS — use a pergunta-chave do domínio ativo:
+- D1 (Germinar): "O que está te movendo — e o que está te travando?"
+- D2 (Enraizar): "O que é inegociável para você nesta área?"
+- D3 (Desenvolver): "Você está se tornando quem deseja ser?"
+- D4 (Florescer): "Sua expressão é fiel à sua essência ou moldada pelo ambiente?"
+- D5 (Frutificar): "Quem você está sendo nesta fase da vida?"
+- D6 (Realizar): "Como sua história contribui para o mundo?"
+
+### BARREIRAS COMO PONTOS DE PROVA:
+Quando o usuário demonstrar resistência ou bloqueio, faça reframe como ponto de validação:
+"Essa barreira revela o estágio real de maturação — ela não é falha, é convite para confirmar a nova identidade."
+
 ## REGRAS DE ANÁLISE:
 1. IDENTIFIQUE O MOTOR: Descubra qual dos 4 motores impulsiona mais este usuário
 2. IDENTIFIQUE CLUSTERS: Quais crises operacionais estão presentes?
@@ -97,8 +128,10 @@ Germinar → Enraizar → Desenvolver → Florescer → Frutificar → Realizar
 
 Retorne apenas JSON válido."""
 
+    templates_text = json.dumps(adaptive_templates or [], ensure_ascii=False, indent=2)
+
     prompt = f"""# TAREFA
-Gere exatamente 15 perguntas NARRATIVAS E ABERTAS para a Fase {phase} do diagnóstico.
+Gere exatamente {max_questions} perguntas NARRATIVAS E ABERTAS para a Fase {phase} do diagnóstico.
 
 ## RESPOSTAS ANTERIORES DO USUÁRIO
 {responses_text}
@@ -112,6 +145,9 @@ Gere exatamente 15 perguntas NARRATIVAS E ABERTAS para a Fase {phase} do diagnó
 ## CONTEXTO METODOLÓGICO
 {rag_context}
 
+## TEMPLATES ADAPTATIVOS ATIVADOS (quando houver)
+{templates_text}
+
 ## REGRAS IMPORTANTES
 1. Distribua perguntas priorizando as áreas menos cobertas
 2. TODAS as perguntas devem ser do tipo "open_long" (perguntas abertas e narrativas)
@@ -121,9 +157,11 @@ Gere exatamente 15 perguntas NARRATIVAS E ABERTAS para a Fase {phase} do diagnó
 6. Use linguagem simbólica: "âncoras", "clímax", "círculo narrativo"
 7. Busque a raiz dos padrões, não sintomas superficiais
 8. Identifique o Ponto de Entrada nas respostas (Emocional, Simbólico, Comportamental, Existencial)
+9. Se houver templates adaptativos, priorize-os sem repetir perguntas idênticas
+10. Para templates com técnica de TCC, mantenha coerência da técnica na formulação
 
 ## FORMATO DE SAÍDA
-Retorne um JSON com uma chave "questions" contendo um array de 15 objetos no formato:
+Retorne um JSON com uma chave "questions" contendo um array de até {max_questions} objetos no formato:
 {{
   "questions": [
     {{
@@ -155,7 +193,7 @@ Retorne um JSON com uma chave "questions" contendo um array de 15 objetos no for
             questions = []
 
         formatted = []
-        for i, q in enumerate(questions[:15]):
+        for i, q in enumerate(questions[:max_questions]):
             formatted.append({
                 "id": (phase - 1) * 15 + i + 1,
                 "area": q.get("area", "Geral"),
@@ -229,6 +267,37 @@ REGRAS CRÍTICAS:
 8. LINGUAGEM SIMBÓLICA: Use termos como "âncoras", "clímax", "círculo narrativo", "travessia".
 9. EVITE CLICHÊS: Não use autoajuda genérica; use técnicas de TCC.
 
+EIXOS DE TRANSFORMAÇÃO — analise os 3 eixos separadamente:
+- Qual eixo (Narrativa, Identidade, Hábitos) está mais desalinhado?
+- TCC trabalha o eixo Narrativa (reescrita de crenças)
+- Assunção Intencional trabalha Identidade e Hábitos
+
+PLANO DE ASSUNÇÃO INTENCIONAL — sempre incluir 4 movimentos:
+1. RECONHECER: que padrão atual precisa ser consciencializado?
+2. MODELAR: como é a identidade e os hábitos ideais neste contexto?
+3. ASSUMIR: qual ação simbólica concreta pode ser tomada agora?
+4. REFORÇAR: quais microvitórias sustentarão a nova identidade?
+
+DOMÍNIO TEMÁTICO ALAVANCA — identifique qual domínio (D1–D6) tem maior potência
+para a fase atual do usuário e estruture as recomendações neste domínio.
+
+BARREIRAS COMO PONTOS DE PROVA:
+Reinterprete resistências como validadores da nova identidade:
+- Na Narrativa: "Essa barreira é parte da história de superação"
+- Na Identidade: "Esse desafio questiona a coerência do 'quem escolho ser'"
+- Nos Hábitos: "Esse comportamento aponta o que precisa ser reprogramado"
+
+OPÇÃO B (COM INTENCIONALIDADE):
+O diagnóstico NARA parte da identidade assumida, não de comportamentos mecânicos.
+A prescrição deve sempre começar com a decisão de assumir a nova identidade e
+depois ancorar em práticas concretas — não o contrário.
+
+NÍVEIS DE IDENTIDADE (Luz Total):
+- Personalidade
+- Cultura
+- Realizações
+- Posição
+
 VETOR DE ESTADO:
 O diagnóstico deve incluir um vetor de estado qualitativo (não scores numéricos).
 
@@ -261,9 +330,19 @@ Retorne um JSON com EXATAMENTE esta estrutura:
     "crises_derivadas": ["Crise secundária 1", "Crise secundária 2"],
     "ponto_entrada_ideal": "Emocional|Simbólico|Comportamental|Existencial",
     "dominios_alavanca": ["D1", "D2"],
+    "eixo_mais_comprometido": "Narrativa|Identidade|Habitos",
+    "dominio_alavanca": "D1|D2|D3|D4|D5|D6",
+    "etapa_assuncao": "Reconhecer|Modelar|Assumir|Reforcar",
     "tom_emocional": "vergonha|indignação|apatia|urgência|tristeza|neutro",
     "risco_principal": "Descrição do principal risco identificado",
-    "necessidade_atual": "O que o usuário precisa fazer agora"
+    "necessidade_atual": "O que o usuário precisa fazer agora",
+    "nivel_identidade": "Personalidade|Cultura|Realizações|Posição"
+  }},
+  "plano_assuncao": {{
+    "reconhecer": "Padrão atual a ser consciencializado",
+    "modelar": "Imagem da identidade e hábitos ideais",
+    "assumir": "Ação simbólica concreta para assumir já",
+    "reforcar": "Microvitória diária para consolidar"
   }},
   "memorias_vermelhas": ["Frase literal 1 do usuário", "Frase literal 2 do usuário"],
   "areas_silenciadas": [1, 5],

@@ -8,6 +8,49 @@ from app.rag.embeddings import generate_embedding
 
 logger = logging.getLogger(__name__)
 
+RAG_QUERY_TEMPLATE = """
+Com base na Metodologia de Phellipe Oliveira, busque estratégias para:
+
+ÁREA DO CÍRCULO NARRATIVO: {areas}
+DOMÍNIO TEMÁTICO: {temas}
+FASE DA JORNADA: {fase}
+CONTEXTO DE CONFLITO: {contexto}
+
+MOTOR MOTIVACIONAL IDENTIFICADO: {motor}
+TIPO DE CRISE: {tipo_crise}
+PONTO DE ENTRADA: {ponto_entrada}
+TOM EMOCIONAL: {tom_emocional}
+
+Retorne documentos que ajudem a:
+1. Identificar o ponto de entrada ideal para intervenção
+2. Sugerir práticas alinhadas ao estágio da jornada
+3. Revelar conexões entre áreas para diagnóstico integrado
+4. Prescrever Âncoras Práticas específicas para a fase de Assunção
+"""
+
+
+def _build_structured_query(
+    *,
+    areas: str,
+    temas: str,
+    fase: str,
+    contexto: str,
+    motor: str,
+    tipo_crise: str,
+    ponto_entrada: str,
+    tom_emocional: str,
+) -> str:
+    return RAG_QUERY_TEMPLATE.format(
+        areas=areas or "Não identificado",
+        temas=temas or "Domínios D1-D6",
+        fase=fase or "Não identificado",
+        contexto=contexto or "Não identificado",
+        motor=motor or "Não identificado",
+        tipo_crise=tipo_crise or "Não identificado",
+        ponto_entrada=ponto_entrada or "Não identificado",
+        tom_emocional=tom_emocional or "neutro",
+    )
+
 
 async def retrieve_relevant_chunks(
     query: str,
@@ -67,6 +110,7 @@ async def retrieve_for_question_generation(
     user_responses: list[dict[str, Any]],
     underrepresented_areas: list[str],
     phase: int,
+    context_analysis: Optional[dict[str, Any]] = None,
 ) -> str:
     """
     Busca contexto relevante para geração de perguntas adaptativas.
@@ -89,8 +133,23 @@ async def retrieve_for_question_generation(
 
     all_chunks: list[dict[str, Any]] = []
 
+    context_analysis = context_analysis or {}
+    phase_name = context_analysis.get("fase_jornada") or f"Fase {phase}"
+    crisis_list = context_analysis.get("clusters_identificados") or []
+    crisis_text = ", ".join(crisis_list) if crisis_list else "Não identificado"
+    structured_query = _build_structured_query(
+        areas=", ".join(underrepresented_areas[:4]) if underrepresented_areas else "Todas as áreas",
+        temas=", ".join(context_analysis.get("dominios_alavanca", [])) if context_analysis.get("dominios_alavanca") else "Domínios D1-D6",
+        fase=str(phase_name),
+        contexto=(response_texts[:500] if response_texts else "Respostas iniciais do usuário"),
+        motor=context_analysis.get("motor_dominante", "Não identificado"),
+        tipo_crise=crisis_text,
+        ponto_entrada=(context_analysis.get("pontos_entrada") or ["Não identificado"])[0],
+        tom_emocional=context_analysis.get("tom_emocional", "neutro"),
+    )
+
     methodology_chunks = await retrieve_relevant_chunks(
-        query=response_texts if response_texts else "diagnóstico transformação narrativa",
+        query=structured_query,
         top_k=5,
     )
     all_chunks.extend(methodology_chunks)
@@ -132,16 +191,18 @@ async def retrieve_for_report_generation(
     """
     context_analysis = context_analysis or {}
 
-    areas_criticas_ids = context_analysis.get("areas_criticas", [])
-    critical_areas = (
-        [
+    areas_criticas = context_analysis.get("areas_criticas", [])
+    if areas_criticas:
+        if isinstance(areas_criticas[0], str):
+            critical_areas = areas_criticas[:4]
+        else:
+            critical_areas = [f"Área {i}" for i in areas_criticas[:4]]
+    else:
+        critical_areas = [
             area_name
             for area_name, data in scores_by_area.items()
             if (data or {}).get("score", 10) < 5.0
         ]
-        if not areas_criticas_ids
-        else [f"Área {i}" for i in areas_criticas_ids[:4]]
-    )
 
     response_summary = " ".join(
         [
@@ -153,8 +214,22 @@ async def retrieve_for_report_generation(
 
     context_chunks: list[dict[str, Any]] = []
 
+    phase_name = context_analysis.get("fase_jornada") or context_analysis.get("nivel_maturidade") or "Não identificado"
+    crisis_list = context_analysis.get("clusters_identificados") or []
+    crisis_text = ", ".join(crisis_list) if crisis_list else "Não identificado"
+    structured_query = _build_structured_query(
+        areas=", ".join(critical_areas[:4]) if critical_areas else "Não identificado",
+        temas=", ".join(context_analysis.get("dominios_alavanca", [])) if context_analysis.get("dominios_alavanca") else "Domínios D1-D6",
+        fase=str(phase_name),
+        contexto=response_summary or "Sem contexto textual consolidado",
+        motor=context_analysis.get("motor_dominante", "Não identificado"),
+        tipo_crise=crisis_text,
+        ponto_entrada=(context_analysis.get("pontos_entrada") or ["Não identificado"])[0],
+        tom_emocional=context_analysis.get("tom_emocional", "neutro"),
+    )
+
     methodology = await retrieve_relevant_chunks(
-        query="fases jornada motores motivacionais clusters crise âncoras práticas pontos entrada assunção intencional",
+        query=structured_query,
         top_k=5,
     )
     context_chunks.extend(methodology)

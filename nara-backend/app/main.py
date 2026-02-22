@@ -44,9 +44,11 @@ app = FastAPI(
 app.state.limiter = limiter
 
 # CORS (com allow_credentials=True, métodos e headers devem ser explícitos, não "*")
-origins = settings.CORS_ORIGINS
-if isinstance(origins, str):
-    origins = [o.strip() for o in origins.split(",") if o.strip()]
+origins = list(settings.CORS_ORIGINS) if settings.CORS_ORIGINS else []
+if not origins:
+    logger.warning("CORS_ORIGINS vazio ou inválido; requisições cross-origin serão bloqueadas")
+else:
+    logger.info("CORS configurado com %d origem(ns)", len(origins))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
