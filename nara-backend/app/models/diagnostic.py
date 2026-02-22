@@ -41,6 +41,33 @@ class AnswerSubmitRequest(BaseModel):
     )
 
 
+class MicroReportRequest(BaseModel):
+    """Request para gerar micro-relatório por área."""
+
+    area: str
+
+
+class MicroDiagnosticStartRequest(BaseModel):
+    """Request para iniciar micro-diagnóstico por área."""
+
+    area: str
+
+
+class MicroDiagnosticAnswerInput(BaseModel):
+    """Resposta de uma pergunta do micro-diagnóstico."""
+
+    question_id: int
+    question_text: str
+    question_area: str
+    answer_text: str = Field(..., max_length=5000)
+
+
+class MicroDiagnosticSubmitRequest(BaseModel):
+    """Request para submeter respostas de fase do micro-diagnóstico."""
+
+    answers: List[MicroDiagnosticAnswerInput]
+
+
 # ===== RESPONSES =====
 
 
@@ -148,3 +175,34 @@ class DiagnosticResultResponse(BaseModel):
     strengths: Optional[List[str]] = None
     development_areas: Optional[List[Dict[str, Any]]] = None
     recommendations: Optional[List[Recommendation]] = None
+
+
+class MicroReportResponse(BaseModel):
+    """Resposta de micro-relatório por área."""
+
+    area: str
+    micro_summary: str
+    foco_tcc: str
+    ancoras: List[str]
+    proxima_acao_7_dias: str
+
+
+class MicroDiagnosticStartResponse(BaseModel):
+    """Resposta ao iniciar micro-diagnóstico."""
+
+    micro_id: str
+    status: str
+    phase: int
+    questions: List[QuestionResponse]
+    total_questions: int
+
+
+class MicroDiagnosticStateResponse(BaseModel):
+    """Estado atual do micro-diagnóstico."""
+
+    micro_id: str
+    status: str
+    phase: int
+    questions: List[QuestionResponse] = []
+    total_questions: int = 0
+    result: Optional[MicroReportResponse] = None

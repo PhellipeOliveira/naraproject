@@ -197,6 +197,161 @@ DOMINIOS_TEMATICOS = {
     "D6": "Papel na Sociedade",
 }
 
+# Eixos de Transformação — síntese operacional da metodologia
+EIXOS_TRANSFORMACAO = {
+    "Narrativa": {
+        "essencia": "A lente da Crença — a história que o indivíduo conta sobre si e o mundo",
+        "ferramenta_principal": "TCC (reestruturação cognitiva)",
+        "objetivo": "Ressignificar eventos-chave, reformular padrões repetitivos, criar narrativa futura",
+    },
+    "Identidade": {
+        "essencia": "O espelho dos Valores — quem o indivíduo é",
+        "ferramenta_principal": "Assunção Intencional",
+        "objetivo": "Reposicionar o 'quem sou eu', dissolver rótulos herdados, reconstruir autoimagem",
+    },
+    "Habitos": {
+        "essencia": "A manifestação dos Princípios — ações práticas diárias",
+        "ferramenta_principal": "Assunção Intencional",
+        "objetivo": "Implantar microações coerentes, criar rotinas de sustentação, remover automatismos limitantes",
+    },
+}
+
+# Motores com semântica de diagnóstico e peso de Gap MX
+MOTORES_DETALHADOS = {
+    "Necessidade": {
+        "discurso_praticado": "Percepção de falta interna ou dor",
+        "busca": "Alívio e estabilidade emocional",
+        "pergunta_acesso": "O que está faltando na sua vida hoje que te traria paz?",
+        "peso_gap": 1.0,
+    },
+    "Valor": {
+        "discurso_praticado": "Indivíduo quer estar alinhado internamente (crenças, valores e princípios)",
+        "busca": "Integridade e alinhamento interno",
+        "pergunta_acesso": "Qual valor seu está sendo desrespeitado?",
+        "peso_gap": 0.8,
+    },
+    "Desejo": {
+        "discurso_praticado": "Identificação de falta externa ou aspiração",
+        "busca": "Conquista, realização e prazer",
+        "pergunta_acesso": "Se tudo fosse possível, o que você gostaria de viver nos próximos 12 meses?",
+        "peso_gap": 0.6,
+    },
+    "Proposito": {
+        "discurso_praticado": "Indivíduo quer estar alinhado externamente (impacto e contribuição)",
+        "busca": "Impacto e legado",
+        "pergunta_acesso": "Que marca você quer deixar no mundo?",
+        "peso_gap": 0.4,
+    },
+}
+
+# Domínios Temáticos completos com pergunta-chave e fase de potência
+DOMINIOS_TEMATICOS_COMPLETOS = {
+    "D1": {
+        "nome": "Motivações e Conflitos",
+        "pergunta_chave": "O que está te movendo — e o que está te travando?",
+        "impacto": "Mapear motivações (desejo, valor, necessidade, propósito) e conflitos que impedem avanço",
+        "fase_potencia_maxima": "Germinar",
+    },
+    "D2": {
+        "nome": "Crenças, Valores e Princípios",
+        "pergunta_chave": "O que é inegociável para você?",
+        "impacto": "Alinhar pensamento, fala e ação com autenticidade e integridade narrativa",
+        "fase_potencia_maxima": "Enraizar",
+    },
+    "D3": {
+        "nome": "Evolução e Desenvolvimento Pessoal",
+        "pergunta_chave": "Você está se tornando quem deseja ser?",
+        "impacto": "Aplicar disciplina, mentalidade de crescimento e modelagem comportamental",
+        "fase_potencia_maxima": "Desenvolver",
+    },
+    "D4": {
+        "nome": "Congruência entre Identidade e Cultura",
+        "pergunta_chave": "Sua expressão é fiel à sua essência ou moldada pelo ambiente?",
+        "impacto": "Ajustar comunicação interna e externa para coerência entre ser e ambiente",
+        "fase_potencia_maxima": "Florescer",
+    },
+    "D5": {
+        "nome": "Transformação de Identidade e Personagens",
+        "pergunta_chave": "Quem você está sendo nesta fase da vida?",
+        "impacto": "Reescrever narrativas pessoais, soltar padrões limitantes, incorporar novos personagens internos",
+        "fase_potencia_maxima": "Frutificar",
+    },
+    "D6": {
+        "nome": "Papel dos Indivíduos na Sociedade",
+        "pergunta_chave": "Como sua história contribui para o mundo?",
+        "impacto": "Despertar senso de impacto, liderança e pertencimento",
+        "fase_potencia_maxima": "Realizar",
+    },
+}
+
+# Assunção Intencional — 4 movimentos de consolidação
+ASSUNCAO_INTENCIONAL = {
+    "Reconhecer": {
+        "fase_jornada": "Germinar",
+        "foco": "Tomar consciência do padrão atual",
+        "acao": "Identificar histórias, crenças e padrões limitantes através de auto-observação e diagnóstico narrativo",
+    },
+    "Modelar": {
+        "fase_jornada": "Enraizar",
+        "foco": "Criar imagem clara da identidade ideal",
+        "acao": "Mapear nova narrativa, crenças, valores, princípios e hábitos; visualizar o novo eu",
+    },
+    "Assumir": {
+        "fase_jornada": "Desenvolver",
+        "foco": "Viver simbolicamente a nova identidade no presente",
+        "acao": "Declarar a nova identidade com afirmações, adotar rituais simbólicos e agir como se já fosse real",
+    },
+    "Reforcar": {
+        "fase_jornada": "Florescer|Frutificar|Realizar",
+        "foco": "Consolidar a nova identidade",
+        "acao": "Manter microvitórias diárias, praticar storytelling com evidências, ancorar emoções em valores",
+    },
+}
+
+# Técnicas TCC com gatilho e pergunta metodológica padrão
+TECNICAS_TCC_NARA = {
+    "Identificacao de Pensamentos Automaticos": {
+        "sinal_ativacao": "Frases internas repetitivas: 'vou falhar', 'nunca consigo'",
+        "pergunta_nara": "Essa frase te visita com frequência? Ela parece um reflexo ou um roteiro automático?",
+        "ponto_entrada_ideal": "Emocional",
+    },
+    "Questionamento Socratico": {
+        "sinal_ativacao": "Crenças absolutas: 'nunca serei capaz', 'não tenho saída'",
+        "pergunta_nara": "O que faz você acreditar nisso? Você já conseguiu em algum momento?",
+        "ponto_entrada_ideal": "Existencial",
+    },
+    "Reestruturacao Cognitiva Escrita": {
+        "sinal_ativacao": "Loop mental repetido, narrativa punitiva sobre erros",
+        "pergunta_nara": "Escreva essa narrativa. Agora reescreva uma versão que honre a verdade sem te atacar.",
+        "ponto_entrada_ideal": "Simbolico",
+    },
+    "Descatastrofizacao": {
+        "sinal_ativacao": "Pensamentos catastróficos: 'tudo vai desmoronar', 'será um desastre'",
+        "pergunta_nara": "O que de pior pode acontecer? E se isso acontecer, o que você faria?",
+        "ponto_entrada_ideal": "Existencial",
+    },
+    "Redefinicao Cognitiva Assistida": {
+        "sinal_ativacao": "Leitura punitiva de eventos: 'isso prova que não sou bom'",
+        "pergunta_nara": "E se esse evento fosse um convite ao seu próximo nível?",
+        "ponto_entrada_ideal": "Simbolico",
+    },
+    "Substituicao de Pensamentos Distorcidos": {
+        "sinal_ativacao": "Generalizações: 'sempre', 'nunca', 'eu nunca consigo'",
+        "pergunta_nara": "Qual frase-âncora mais verdadeira pode substituir esse roteiro?",
+        "ponto_entrada_ideal": "Comportamental",
+    },
+    "Imaginacao Guiada": {
+        "sinal_ativacao": "Bloqueio identitário, dificuldade de visualizar nova versão de si",
+        "pergunta_nara": "Feche os olhos. Como é a sua postura, fala e ação como a identidade que você escolheu?",
+        "ponto_entrada_ideal": "Emocional",
+    },
+    "Flecha Descendente": {
+        "sinal_ativacao": "Padrão de autossabotagem repetido, autocrítica persistente",
+        "pergunta_nara": "Se isso for verdade... o que isso diz sobre quem você é? E o que isso significaria?",
+        "ponto_entrada_ideal": "Emocional",
+    },
+}
+
 # Protocolo de Diagnóstico Rápido (6 fatores) — 01_BASE_METODOLOGICA § II.2
 FATORES_DIAGNOSTICO = [
     "Autenticidade",
@@ -254,4 +409,20 @@ CLUSTERS_CRISE = {
         ],
         "areas_impactadas": ["Inovação", "Vida Profissional", "Vida Pessoal"],
     },
+}
+
+# Sinais M1 por área (usado em prompts e ingestão)
+SINAIS_M1_POR_AREA = {
+    "Saúde Física": ["Fadiga crônica", "Corpo desconectado das metas", "Volição baixa"],
+    "Saúde Mental": ["Autocrítica excessiva", "Pensamentos automáticos negativos", "Ruminação"],
+    "Saúde Espiritual": ["Vazio existencial", "Falta de sentido", "Desconexão de propósito"],
+    "Vida Pessoal": ["Identidade fragmentada", "Narrativa de autossabotagem", "Ausência de essência"],
+    "Vida Amorosa": ["Anulação pelo parceiro", "Padrão de relacionamento repetido", "Solidão afetiva"],
+    "Vida Familiar": ["Identidades herdadas não questionadas", "Conflito geracional", "Vergonha familiar"],
+    "Vida Social": ["Invisibilidade simbólica", "Diminuição do brilho para aceitação", "Solidão existencial"],
+    "Vida Profissional": ["Síndrome do impostor", "Atuação de papel falso", "Invisibilidade em espaços de poder"],
+    "Finanças": ["Crenças de escassez herdadas", "Ansiedade por desorganização material", "Falta de recurso para MX"],
+    "Educação": ["Estagnação intelectual", "Paralisia por excesso de preparação", "Informação sem ação"],
+    "Inovação": ["Bloqueio criativo", "Medo de recomeçar", "Repetição de ciclos exaustivos"],
+    "Lazer": ["Culpa por descansar", "Lazer viciado que drena", "Ausência de rituais de descompressão"],
 }

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_KEY: str = ""
     ADMIN_API_KEY: str = ""
     ADMIN_USERNAME: str = ""
@@ -57,14 +58,22 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
+        def normalize(origin: str) -> str:
+            s = origin.strip().strip("[]\"'")
+            return s.strip()
+
         if isinstance(v, str):
-            if v.strip().startswith("["):
+            raw = v.strip()
+            if raw.startswith("["):
                 import json
                 try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
+                    parsed = json.loads(raw)
+                    return [normalize(str(o)) for o in parsed if o]
+                except (json.JSONDecodeError, TypeError):
                     pass
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            return [normalize(o) for o in raw.split(",") if o.strip()]
+        if isinstance(v, list):
+            return [normalize(str(o)) for o in v if o]
         return v
 
     def validate_runtime_requirements(self) -> None:

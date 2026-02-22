@@ -10,12 +10,16 @@ Fontes: pasta docs-rag/ (e opcionalmente documentos/01_FUNDAMENTOS.md como guia)
 
 import logging
 import re
+import json
 from pathlib import Path
 from typing import Any, Literal, Optional
 
 from app.core.constants import AREAS
+from app.config import settings
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
+_metadata_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 # Tamanho alvo por chunk (caracteres); overlap para manter contexto
@@ -27,6 +31,21 @@ CHUNK_MIN_CHARS = 100
 
 # Estratégias: "size" = por tamanho/overlap, "semantic" = por parágrafos completos, "both" = as duas
 ChunkStrategy = Literal["size", "semantic", "both"]
+
+MOTORES_VALIDOS = ["Necessidade", "Valor", "Desejo", "Propósito"]
+ESTAGIOS_VALIDOS = ["Germinar", "Enraizar", "Desenvolver", "Florescer", "Frutificar", "Realizar"]
+TIPOS_CRISE_VALIDOS = [
+    "Identidade Raiz",
+    "Sentido e Direção",
+    "Execução e Estrutura",
+    "Conexão e Expressão",
+    "Incongruência Identidade-Cultura",
+    "Transformação de Personagem",
+]
+PONTOS_ENTRADA_VALIDOS = ["Emocional", "Simbólico", "Comportamental", "Existencial"]
+TIPOS_CONTEUDO_VALIDOS = ["Ponto de Entrada", "Âncora Prática", "Técnica de TCC", "Conceito", "Exemplo de Caso"]
+DOMINIOS_VALIDOS = ["D1", "D2", "D3", "D4", "D5", "D6"]
+NIVEIS_MATURIDADE_VALIDOS = ["baixo", "médio", "alto"]
 
 
 def _normalize_heading(line: str) -> str:
@@ -351,24 +370,136 @@ def chunks_to_knowledge_rows(
         emb = embeddings[i] if i < len(embeddings) else None
         meta = ch.get("metadata") or {}
         meta["source_version"] = source_version
+        motor_motivacional = meta.get("motor_motivacional")
+        estagio_jornada = meta.get("estagio_jornada")
+        tipo_crise = meta.get("tipo_crise")
+        ponto_entrada = meta.get("ponto_entrada")
+        sintomas_comportamentais = meta.get("sintomas_comportamentais")
+        tom_emocional = meta.get("tom_emocional_base")
+        nivel_maturidade = meta.get("nivel_maturidade")
+        subtipo_crise = meta.get("subtipo_crise")
+        tipo_conteudo = meta.get("tipo_conteudo")
+        dominio = meta.get("dominio")
         row = {
             "chapter": ch.get("chapter", "Metodologia"),
             "section": ch.get("section"),
             "content": ch["content"],
             "embedding": emb,
             "metadata": meta,
-            "motor_motivacional": None,
-            "estagio_jornada": None,
-            "tipo_crise": None,
-            "ponto_entrada": None,
-            "sintomas_comportamentais": None,
-            "tom_emocional": None,
-            "nivel_maturidade": None,
-            "subtipo_crise": None,
-            "tipo_conteudo": None,
-            "dominio": None,
+            "motor_motivacional": motor_motivacional,
+            "estagio_jornada": estagio_jornada,
+            "tipo_crise": tipo_crise,
+            "ponto_entrada": ponto_entrada,
+            "sintomas_comportamentais": sintomas_comportamentais,
+            "tom_emocional": tom_emocional,
+            "nivel_maturidade": nivel_maturidade,
+            "subtipo_crise": subtipo_crise,
+            "tipo_conteudo": tipo_conteudo,
+            "dominio": dominio,
             "is_active": True,
             "version": settings.RAG_CHUNK_VERSION,
         }
         rows.append(row)
     return rows
+
+
+def _safe_list(values: Any, valid_options: list[str]) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return [v for v in values if isinstance(v, str) and v in valid_options]
+
+
+def _safe_string(value: Any, valid_options: list[str]) -> Optional[str]:
+    if isinstance(value, str) and value in valid_options:
+        return value
+    return None
+
+
+def _normalize_llm_metadata(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normaliza saída do LLM para os campos de metadata suportados."""
+    return {
+        "motor_motivacional": _safe_list(raw.get("motor_motivacional"), MOTORES_VALIDOS),
+        "estagio_jornada": _safe_list(raw.get("estagio_jornada"), ESTAGIOS_VALIDOS),
+        "tipo_crise": _safe_list(raw.get("tipo_crise"), TIPOS_CRISE_VALIDOS),
+        "subtipo_crise": raw.get("subtipo_crise") if isinstance(raw.get("subtipo_crise"), str) else None,
+        "dominio": _safe_list(raw.get("dominio"), DOMINIOS_VALIDOS),
+        "ponto_entrada": _safe_string(raw.get("ponto_entrada"), PONTOS_ENTRADA_VALIDOS),
+        "tipo_conteudo": _safe_string(raw.get("tipo_conteudo"), TIPOS_CONTEUDO_VALIDOS),
+        "sintomas_comportamentais": [
+            s for s in (raw.get("sintomas_comportamentais") or []) if isinstance(s, str)
+        ][:6],
+        "tom_emocional_base": raw.get("tom_emocional_base")
+        if isinstance(raw.get("tom_emocional_base"), str)
+        else None,
+        "nivel_maturidade": _safe_string(raw.get("nivel_maturidade"), NIVEIS_MATURIDADE_VALIDOS),
+    }
+
+
+async def enrich_chunks_metadata_with_llm(
+    chunks: list[dict[str, Any]],
+    *,
+    model: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """
+    Enriquece metadados dos chunks usando LLM.
+    Essa etapa melhora o RAG ao preencher motor/crise/ponto de entrada no momento da ingestão.
+    """
+    if not chunks:
+        return []
+    if not settings.OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY ausente; pulando enriquecimento de metadata.")
+        return chunks
+
+    metadata_model = model or settings.OPENAI_MODEL_QUESTIONS
+    enriched_chunks: list[dict[str, Any]] = []
+
+    system_prompt = """
+Você classifica trechos metodológicos NARA em metadados RAG.
+Retorne somente JSON válido com estas chaves:
+{
+  "motor_motivacional": ["Necessidade|Valor|Desejo|Propósito"],
+  "estagio_jornada": ["Germinar|Enraizar|Desenvolver|Florescer|Frutificar|Realizar"],
+  "tipo_crise": ["Identidade Raiz|Sentido e Direção|Execução e Estrutura|Conexão e Expressão|Incongruência Identidade-Cultura|Transformação de Personagem"],
+  "subtipo_crise": "string ou null",
+  "dominio": ["D1|D2|D3|D4|D5|D6"],
+  "ponto_entrada": "Emocional|Simbólico|Comportamental|Existencial|null",
+  "tipo_conteudo": "Ponto de Entrada|Âncora Prática|Técnica de TCC|Conceito|Exemplo de Caso|null",
+  "sintomas_comportamentais": ["string"],
+  "tom_emocional_base": "string ou null",
+  "nivel_maturidade": "baixo|médio|alto|null"
+}
+"""
+
+    for idx, chunk in enumerate(chunks, start=1):
+        content = (chunk.get("content") or "")[:3000]
+        chapter = chunk.get("chapter", "Metodologia")
+        section = chunk.get("section", "Conteúdo")
+        user_prompt = (
+            f"Chapter: {chapter}\n"
+            f"Section: {section}\n"
+            f"Texto:\n{content}\n\n"
+            "Classifique este chunk da metodologia NARA."
+        )
+        try:
+            response = await _metadata_client.chat.completions.create(
+                model=metadata_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"},
+                max_tokens=500,
+            )
+            parsed = json.loads(response.choices[0].message.content or "{}")
+            normalized = _normalize_llm_metadata(parsed)
+            metadata = chunk.get("metadata") or {}
+            enriched_chunks.append({
+                **chunk,
+                "metadata": {**metadata, **normalized},
+            })
+        except Exception as exc:
+            logger.warning("Falha ao enriquecer metadata do chunk %d: %s", idx, exc)
+            enriched_chunks.append(chunk)
+
+    return enriched_chunks

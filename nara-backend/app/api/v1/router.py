@@ -1,7 +1,7 @@
 """Agrega todos os routers v1."""
 from fastapi import APIRouter
 
-from app.api.v1 import admin, analytics, diagnostic, feedback, privacy, waitlist
+from app.api.v1 import admin, analytics, auth, diagnostic, feedback, privacy, waitlist
 
 api_router = APIRouter()
 
@@ -31,4 +31,7 @@ api_router.include_router(
 )
 api_router.include_router(
     admin.router,
+)
+api_router.include_router(
+    auth.router,
 )

@@ -14,10 +14,16 @@ from typing import Any, Optional
 
 from app.config import settings
 from app.core.constants import (
+    AREAS,
     CLUSTERS_CRISE,
     MOTORES,
+    EIXOS_TRANSFORMACAO,
+    DOMINIOS_TEMATICOS_COMPLETOS,
+    ASSUNCAO_INTENCIONAL,
     PONTOS_ENTRADA,
     ANCORAS_PRATICAS,
+    NIVEIS_IDENTIDADE,
+    FATORES_DIAGNOSTICO,
 )
 from app.rag.retriever import retrieve_relevant_chunks
 from openai import AsyncOpenAI
@@ -88,7 +94,28 @@ async def analyze_answers_context(
             messages=[
                 {
                     "role": "system",
-                    "content": "Você é um analista especializado em Transformação Narrativa."
+                    "content": (
+                        "Você é Nara, analista sênior em Engenharia de Mindset da Metodologia "
+                        "de Phellipe Oliveira.\n\n"
+                        "MISSÃO: Diagnosticar em qual dos 3 Eixos de Transformação "
+                        "(Narrativa, Identidade, Hábitos) reside o principal desalinhamento "
+                        "do usuário, identificar o Motor dominante, a Fase da Jornada, o "
+                        "Cluster de Crise e o Domínio Temático de maior alavancagem.\n\n"
+                        "EIXOS DE TRANSFORMAÇÃO:\n"
+                        "- Narrativa (=Crença): história que o indivíduo conta sobre si. "
+                        "Ferramenta: TCC.\n"
+                        "- Identidade (=Valores): quem o indivíduo acredita ser. "
+                        "Ferramenta: Assunção Intencional.\n"
+                        "- Hábitos (=Princípios): ações práticas que materializam narrativa "
+                        "e identidade. Ferramenta: Assunção Intencional.\n\n"
+                        "ESTADOS METODOLÓGICOS:\n"
+                        "- M1: estado atual de crise ou conflito (o personagem que o usuário vive hoje)\n"
+                        "- MX: estado desejado, nova identidade escolhida\n"
+                        "- M2/M2X: comportamentos e práticas de transição entre M1 e MX\n"
+                        "- M3: referências externas (pessoas, ambientes, grupos) que modelam "
+                        "a nova identidade\n\n"
+                        "Analise estritamente pela metodologia NARA. Nunca use frameworks externos."
+                    ),
                 },
                 {
                     "role": "user",
@@ -101,6 +128,10 @@ async def analyze_answers_context(
         
         import json
         analysis = json.loads(response.choices[0].message.content)
+        gap_mx = compute_gap_mx(responses, analysis)
+        incongruencias = detect_symbolic_incongruences(analysis)
+        analysis["gap_mx"] = gap_mx
+        analysis["incongruencias_simbolicas"] = incongruencias
         logger.info(f"Análise contextual concluída: motor={analysis.get('motor_dominante')}")
         return analysis
         
@@ -114,11 +145,35 @@ def _build_analysis_prompt(response_texts: str, rag_context: str) -> str:
     motors_desc = "\n".join([f"- **{k}**: {v}" for k, v in MOTORES.items()])
     clusters_desc = "\n".join([f"- **{k}**: {', '.join(v['sinais'])}" for k, v in CLUSTERS_CRISE.items()])
     pontos_desc = "\n".join([f"- **{k}**: {v}" for k, v in PONTOS_ENTRADA.items()])
+    areas_desc = "\n".join([f"- {i + 1}. {area}" for i, area in enumerate(AREAS)])
+    niveis_desc = "\n".join([f"- {nivel}" for nivel in NIVEIS_IDENTIDADE])
+    fatores_desc = "\n".join([f"- {fator}" for fator in FATORES_DIAGNOSTICO])
+    eixos_desc = "\n".join(
+        [
+            f"- **{nome}**: {dados['essencia']} | Ferramenta: {dados['ferramenta_principal']} | Objetivo: {dados['objetivo']}"
+            for nome, dados in EIXOS_TRANSFORMACAO.items()
+        ]
+    )
+    dominios_desc = "\n".join(
+        [
+            f"- **{codigo} ({dados['nome']})** → fase {dados['fase_potencia_maxima']}: {dados['pergunta_chave']}"
+            for codigo, dados in DOMINIOS_TEMATICOS_COMPLETOS.items()
+        ]
+    )
+    assuncao_desc = "\n".join(
+        [
+            f"- **{etapa}** ({dados['fase_jornada']}): {dados['foco']} — {dados['acao']}"
+            for etapa, dados in ASSUNCAO_INTENCIONAL.items()
+        ]
+    )
     
     prompt = f"""
-Analise as respostas do usuário e identifique:
+Analise as respostas e classifique sob a ótica da Engenharia de Mindset:
 
 ## FRAMEWORK METODOLÓGICO
+
+### 12 ÁREAS ESTRUTURANTES:
+{areas_desc}
 
 ### 4 MOTORES MOTIVACIONAIS:
 {motors_desc}
@@ -128,6 +183,33 @@ Analise as respostas do usuário e identifique:
 
 ### PONTOS DE ENTRADA (Portas de Intervenção):
 {pontos_desc}
+
+### 4 NÍVEIS DE IDENTIDADE (Luz Total):
+{niveis_desc}
+
+### PROTOCOLO DE DIAGNÓSTICO RÁPIDO (6 fatores):
+{fatores_desc}
+
+### TÉCNICAS DE TCC INTERNAS:
+- Identificação de Pensamentos Automáticos
+- Questionamento Socrático
+- Reestruturação Cognitiva Escrita
+- Descatastrofização
+- Redefinição Cognitiva Assistida
+- Substituição de Pensamentos Distorcidos
+- Imaginação Guiada
+
+### EIXOS DE TRANSFORMAÇÃO (diagnose qual está comprometido):
+{eixos_desc}
+- Narrativa comprometida: histórias autolimitantes, crenças disfuncionais, frases da velha narrativa
+- Identidade comprometida: confusão sobre quem é, valores incoerentes, rótulos herdados sem questionamento
+- Hábitos comprometidos: reconhece o que quer mas não age, paralisia e autossabotagem
+
+### DOMÍNIOS TEMÁTICOS — use o domínio de maior potência para a fase identificada:
+{dominios_desc}
+
+### ASSUNÇÃO INTENCIONAL (para prescrever reforços):
+{assuncao_desc}
 
 ### NÍVEIS DE MATURIDADE NARRATIVA:
 - **Baixo**: Não reconhece padrões, culpa externa
@@ -150,6 +232,18 @@ Identifique:
 6. **Áreas Críticas**: Quais das 12 áreas estão em maior conflito (M1)?
 7. **Sinais de Conflito**: Padrões específicos detectados
 8. **Âncoras Sugeridas**: Das 19 âncoras práticas, quais 3-5 são mais relevantes?
+9. **Memórias Vermelhas**: 2-4 frases literais do usuário que revelam conflito (M1)
+10. **Barreiras Identificadas**: Pontos de prova, autossabotagem, ambiente hostil
+11. **Capital Simbólico**: Recursos sociais/culturais já presentes
+12. **FCU**: Forma, Conteúdo e Uso da expressão do usuário
+13. **Palavras Recorrentes**: termos frequentes da narrativa
+14. **Fase da Jornada**: Germinar|Enraizar|Desenvolver|Florescer|Frutificar|Realizar
+15. **Domínios Alavanca**: 1-3 domínios entre D1..D6
+16. **Nível de Identidade em Conflito**: Personalidade|Cultura|Realizações|Posição
+17. **Fatores do Protocolo Rápido**: classifique os 6 fatores como Alto|Médio|Baixo
+18. **Eixo mais comprometido**: Narrativa|Identidade|Habitos
+19. **Domínio de potência máxima**: D1|D2|D3|D4|D5|D6
+20. **Etapa de Assunção sugerida**: Reconhecer|Modelar|Assumir|Reforcar
 
 Lista das 19 Âncoras: {', '.join(ANCORAS_PRATICAS)}
 
@@ -164,11 +258,111 @@ Retorne JSON estrito:
   "tom_emocional": "descrição breve",
   "areas_criticas": ["Área1", "Área2"],
   "sinais_conflito": ["sinal 1", "sinal 2"],
+  "memorias_vermelhas": ["frase 1", "frase 2"],
+  "barreiras_identificadas": ["barreira 1", "barreira 2"],
+  "capital_simbolico": ["recurso 1", "recurso 2"],
+  "fcu": {{
+    "forma": "descrição",
+    "conteudo": "descrição",
+    "uso": "descrição"
+  }},
+  "palavras_recorrentes": ["palavra 1", "palavra 2"],
+  "fase_jornada": "Germinar|Enraizar|Desenvolver|Florescer|Frutificar|Realizar",
+  "dominios_alavanca": ["D1", "D3"],
+  "eixo_mais_comprometido": "Narrativa|Identidade|Habitos",
+  "dominio_potencia_maxima": "D1|D2|D3|D4|D5|D6",
+  "etapa_assuncao_sugerida": "Reconhecer|Modelar|Assumir|Reforcar",
+  "nivel_identidade_conflito": "Personalidade|Cultura|Realizações|Posição",
+  "fatores_diagnostico_rapido": {{
+    "Autenticidade": "Alto|Médio|Baixo",
+    "Integração do Passado": "Alto|Médio|Baixo",
+    "Visão/Enredo": "Alto|Médio|Baixo",
+    "Coragem/Decisão": "Alto|Médio|Baixo",
+    "Expressão/Voz": "Alto|Médio|Baixo",
+    "Estrutura/Pertencimento": "Alto|Médio|Baixo"
+  }},
   "justificativa_motor": "Breve explicação do motor dominante",
   "justificativa_clusters": "Breve explicação dos clusters"
 }}
 """
     return prompt
+
+
+def compute_gap_mx(
+    responses: list[dict[str, Any]],
+    context_analysis: dict[str, Any],
+) -> dict[str, Any]:
+    """Computa o Gap MX (M1->MX) usando regras determinísticas."""
+    motor = context_analysis.get("motor_dominante") or "Necessidade"
+    areas_criticas = context_analysis.get("areas_criticas") or []
+    clusters = context_analysis.get("clusters_identificados") or []
+    crise_raiz = clusters[0] if clusters else "não identificada"
+
+    motor_weights = {
+        "Necessidade": 1.0,
+        "Valor": 0.8,
+        "Desejo": 0.6,
+        "Propósito": 0.4,
+    }
+    weight = motor_weights.get(motor, 1.0)
+
+    mx_text = ""
+    for response in responses:
+        if response.get("question_id") == 15:
+            mx_text = ((response.get("answer_value") or {}).get("text") or "").strip()
+            if mx_text:
+                break
+    if not mx_text:
+        for response in responses:
+            q_text = (response.get("question_text") or "").lower()
+            if "melhor versão" in q_text or "daqui a um ano" in q_text:
+                mx_text = ((response.get("answer_value") or {}).get("text") or "").strip()
+                if mx_text:
+                    break
+    if not mx_text:
+        mx_text = "MX não explicitado com clareza nas respostas."
+
+    gap_score = round(len(areas_criticas) * weight, 2)
+    estado_m1 = f"Motor={motor}; CriseRaiz={crise_raiz}; AreasCriticas={len(areas_criticas)}"
+    gap_description = (
+        f"A distância entre seu estado atual ({estado_m1}) e sua meta ({mx_text}) "
+        f"é marcada por {len(areas_criticas)} áreas em conflito e o motor {motor}."
+    )
+    return {
+        "estado_m1": estado_m1,
+        "estado_mx": mx_text,
+        "gap_score": gap_score,
+        "gap_description": gap_description,
+    }
+
+
+def detect_symbolic_incongruences(context_analysis: dict[str, Any]) -> list[str]:
+    """Detecta incongruências simbólicas por regras explícitas da metodologia."""
+    incongruencias: list[str] = []
+    motor = context_analysis.get("motor_dominante")
+    areas_criticas = context_analysis.get("areas_criticas") or []
+    fase = context_analysis.get("fase_jornada")
+    pontos_entrada = context_analysis.get("pontos_entrada") or []
+    clusters = context_analysis.get("clusters_identificados") or []
+
+    if motor == "Valor" and "Vida Profissional" in areas_criticas:
+        incongruencias.append(
+            "Incongruência: declara agir por valores, mas Vida Profissional está em crise "
+            "(possível capitulação simbólica)."
+        )
+
+    if fase == "Realizar" and "Emocional" in pontos_entrada:
+        incongruencias.append(
+            "Usuário em fase avançada, mas operando em modo reativo emocional "
+            "(regressão de jornada)."
+        )
+
+    if "Identidade Raiz" in clusters and "Transformação de Personagem" in clusters:
+        incongruencias.append(
+            "Dupla âncora: preso ao passado e com medo do próximo personagem."
+        )
+
+    return incongruencias
 
 
 def _empty_analysis() -> dict[str, Any]:
@@ -183,6 +377,32 @@ def _empty_analysis() -> dict[str, Any]:
         "tom_emocional": "neutro",
         "areas_criticas": [],
         "sinais_conflito": [],
+        "memorias_vermelhas": [],
+        "barreiras_identificadas": [],
+        "capital_simbolico": [],
+        "fcu": {"forma": "", "conteudo": "", "uso": ""},
+        "palavras_recorrentes": [],
+        "fase_jornada": "Germinar",
+        "dominios_alavanca": [],
+        "eixo_mais_comprometido": "Narrativa",
+        "dominio_potencia_maxima": "D1",
+        "etapa_assuncao_sugerida": "Reconhecer",
+        "nivel_identidade_conflito": "Personalidade",
+        "fatores_diagnostico_rapido": {
+            "Autenticidade": "Médio",
+            "Integração do Passado": "Médio",
+            "Visão/Enredo": "Médio",
+            "Coragem/Decisão": "Médio",
+            "Expressão/Voz": "Médio",
+            "Estrutura/Pertencimento": "Médio",
+        },
+        "gap_mx": {
+            "estado_m1": "Dados insuficientes",
+            "estado_mx": "Dados insuficientes",
+            "gap_score": 0.0,
+            "gap_description": "Dados insuficientes para mapear Gap MX.",
+        },
+        "incongruencias_simbolicas": [],
         "justificativa_motor": "Dados insuficientes para análise",
         "justificativa_clusters": "Dados insuficientes para análise"
     }
