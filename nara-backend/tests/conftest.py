@@ -2,8 +2,8 @@
 import os
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 # Garantir que env de teste não use credenciais reais
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
@@ -21,9 +21,13 @@ def app():
 
 
 @pytest.fixture
-def client(app):
-    """Test client (sync)."""
-    return TestClient(app)
+async def client(app):
+    """Cliente HTTP async para testes ASGI (compatível com httpx 0.27+)."""
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
 
 
 @pytest.fixture

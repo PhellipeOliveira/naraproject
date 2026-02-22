@@ -74,12 +74,12 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Pessoal",
                     "type": "open_long",
-                    "text": "Você trouxe sinais de autocrítica forte no eixo Narrativa. De onde essa voz crítica do M1 parece vir na sua história e que crença ela tenta manter viva?",
+                    "text": "Você trouxe sinais de autocrítica forte no eixo Narrativa. De onde essa voz crítica sobre quem você é hoje parece vir na sua história e que crença ela tenta manter viva?",
                 },
                 {
                     "area": "Saúde Mental",
                     "type": "open_long",
-                    "text": "Se você se tratasse como trataria alguém que ama, qual frase substituiria a narrativa atual e aproximaria seu M1 do MX nesta área?",
+                    "text": "Se você se tratasse como trataria alguém que ama, qual frase substituiria a narrativa atual e te aproximaria de quem você quer se tornar nesta área?",
                 },
             ],
         },
@@ -94,12 +94,12 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Familiar",
                     "type": "open_long",
-                    "text": "Quando você prioriza o trabalho, qual valor inegociável da sua Identidade sente que está sendo comprometido no M1?",
+                    "text": "Quando você prioriza o trabalho, qual valor inegociável da sua Identidade sente que está sendo comprometido na sua identidade de hoje?",
                 },
                 {
                     "area": "Vida Profissional",
                     "type": "open_long",
-                    "text": "Que medo aparece quando você tenta alinhar carreira e família ao personagem MX que deseja sustentar?",
+                    "text": "Que medo aparece quando você tenta alinhar carreira e família à pessoa que você quer se tornar?",
                 },
             ],
         },
@@ -114,7 +114,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Saúde Espiritual",
                     "type": "open_long",
-                    "text": "Descreva um momento em que sua Identidade esteve alinhada ao propósito. Que elementos desse cenário podem voltar como referência para o MX?",
+                    "text": "Descreva um momento em que sua Identidade esteve alinhada ao propósito. Que elementos desse cenário podem voltar como referência para quem você quer se tornar?",
                 },
                 {
                     "area": "Inovação",
@@ -134,7 +134,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Pessoal",
                     "type": "open_long",
-                    "text": "Qual personagem antigo do M1 você ainda tenta sustentar mesmo sabendo que ele já não combina com a identidade MX desta fase?",
+                    "text": "Qual personagem antigo de quem você é hoje você ainda tenta sustentar mesmo sabendo que ele já não combina com a identidade que deseja assumir nesta fase?",
                 },
                 {
                     "area": "Inovação",
@@ -159,7 +159,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Social",
                     "type": "open_long",
-                    "text": "Em quais relações você sente que precisa diminuir sua identidade para manter pertencimento, e que limite protegeria seu MX?",
+                    "text": "Em quais relações você sente que precisa diminuir sua identidade para manter pertencimento, e que limite protegeria quem você quer se tornar?",
                 },
             ],
         },
