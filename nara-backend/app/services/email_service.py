@@ -180,6 +180,8 @@ class EmailService:
         summary = diagnostic_result.get("summary") or ""
         overall_score = diagnostic_result.get("overall_score")
         view_url = diagnostic_result.get("view_url") or ""
+        dashboard_url = diagnostic_result.get("dashboard_url") or ""
+        start_url = diagnostic_result.get("start_url") or ""
         diagnostic_id = diagnostic_result.get("diagnostic_id")
         summary_snippet = (summary[:300] + "...") if len(summary) > 300 else summary
 
@@ -188,6 +190,8 @@ class EmailService:
             summary=summary_snippet,
             overall_score=overall_score,
             view_url=view_url,
+            dashboard_url=dashboard_url,
+            start_url=start_url,
         )
         return await self.send_email(
             to=user_email,
@@ -203,6 +207,8 @@ class EmailService:
         summary: str,
         overall_score: Optional[float] = None,
         view_url: str = "",
+        dashboard_url: str = "",
+        start_url: str = "",
     ) -> str:
         """Template HTML responsivo para email de resultado do diagnóstico."""
         score_block = ""
@@ -213,9 +219,19 @@ class EmailService:
                     <span style="font-size: 12px; opacity: 0.9;">Score Geral</span>
                 </div>
             """
-        cta_block = ""
+        cta_blocks = []
+        if dashboard_url:
+            cta_blocks.append(
+                f'<a href="{dashboard_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 12px 0;">Acessar o dashboard →</a>'
+            )
         if view_url:
-            cta_block = f'<a href="{view_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 24px 0;">Ver Diagnóstico Completo →</a>'
+            cta_blocks.append(
+                f'<a href="{view_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 12px 0;">Ver resultado</a>'
+            )
+        cta_block = "".join(cta_blocks)
+        invite_block = ""
+        if start_url:
+            invite_block = f'<p style="color: #6b7280; font-size: 14px; margin-top: 20px;">Convide alguém:</p><a href="{start_url}" style="display: block; background: transparent; color: #6366f1; text-decoration: none; padding: 12px 24px; border-radius: 8px; text-align: center; font-weight: 600; margin: 12px 0; border: 2px solid #6366f1;">Convidar alguém a fazer o diagnóstico</a>'
         return f"""
         <!DOCTYPE html>
         <html>
@@ -233,6 +249,7 @@ class EmailService:
                     <p style="margin: 8px 0 0 0; color: #4b5563;">{summary}</p>
                 </div>
                 {cta_block}
+                {invite_block}
                 <p style="color: #6b7280; font-size: 14px; text-align: center; margin-top: 32px;">© {settings.APP_NAME}. Todos os direitos reservados.</p>
             </div>
         </body>
@@ -281,6 +298,8 @@ class EmailService:
             "overall_score": overall_score,
             "summary": summary,
             "view_url": f"{settings.FRONTEND_URL}/resultado/{result_token}",
+            "dashboard_url": f"{settings.FRONTEND_URL}/meu-diagnostico/{result_token}",
+            "start_url": f"{settings.FRONTEND_URL}/diagnostico/iniciar",
         }
         return await self.send_diagnostic_email(
             user_email=to,
@@ -309,6 +328,7 @@ class EmailService:
             areas_covered=areas_covered,
             can_finish=can_finish,
             resume_url=f"{settings.FRONTEND_URL}/diagnostico/{diagnostic_id}/retomar",
+            start_url=f"{settings.FRONTEND_URL}/diagnostico/iniciar",
         )
         return await self.send_email(
             to=to,
@@ -355,6 +375,7 @@ class EmailService:
         total_answers: Optional[int] = None,
         areas_covered: Optional[int] = None,
         can_finish: bool = False,
+        start_url: str = "",
     ) -> str:
         phase_name = PHASE_NAMES.get(phase or 1, "Diagnóstico Base")
         answered = max(0, int(total_answers or 0))
@@ -365,6 +386,12 @@ class EmailService:
             if can_finish
             else f"→ Faltam ~{remaining_questions} perguntas para poder finalizar"
         )
+        invite_block = ""
+        if start_url:
+            invite_block = f"""
+                <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">Quer que alguém próximo também faça? Envie este link:</p>
+                <a href="{start_url}" style="display: block; background: transparent; color: #6366f1; text-decoration: none; padding: 12px 24px; border-radius: 8px; text-align: center; font-weight: 600; margin: 12px 0; border: 2px solid #6366f1;">Convidar alguém a fazer o diagnóstico</a>
+            """
 
         return f"""
         <!DOCTYPE html>
@@ -381,6 +408,7 @@ class EmailService:
                     <p style="margin: 0;">{finish_line}</p>
                 </div>
                 <a href="{resume_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 24px 0;">Continuar Diagnóstico →</a>
+                {invite_block}
                 <p style="color: #6b7280; font-size: 14px; text-align: center; margin-top: 32px;">© NARA.</p>
             </div>
         </body>

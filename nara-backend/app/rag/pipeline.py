@@ -74,7 +74,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Pessoal",
                     "type": "open_long",
-                    "text": "Você trouxe sinais de autocrítica forte no eixo Narrativa. De onde essa voz crítica sobre quem você é hoje parece vir na sua história e que crença ela tenta manter viva?",
+                    "text": "Você trouxe sinais de autocrítica forte na história que conta sobre si. De onde essa voz crítica sobre quem você é hoje parece vir na sua história e que crença ela tenta manter viva?",
                 },
                 {
                     "area": "Saúde Mental",
@@ -154,7 +154,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Profissional",
                     "type": "open_long",
-                    "text": "Em que contexto o ambiente atual exige um personagem que contradiz seus valores centrais e desorganiza seu eixo Identidade?",
+                    "text": "Em que contexto o ambiente atual exige um personagem que contradiz seus valores centrais e desorganiza quem você acredita ser?",
                 },
                 {
                     "area": "Vida Social",
@@ -435,7 +435,7 @@ class NaraDiagnosticPipeline:
         if context_analysis.get("motor_dominante"):
             patterns.append(f"Motor dominante: {context_analysis['motor_dominante']}")
         if context_analysis.get("clusters_identificados"):
-            patterns.append(f"Clusters: {', '.join(context_analysis['clusters_identificados'][:2])}")
+            patterns.append(f"Padrões de conflito: {', '.join(context_analysis['clusters_identificados'][:2])}")
         
         next_phase = diagnostic["current_phase"] + 1
 
