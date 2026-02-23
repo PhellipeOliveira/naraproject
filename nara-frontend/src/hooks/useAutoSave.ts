@@ -101,14 +101,11 @@ export function useAutoSave(diagnosticId: string | null) {
       
       return true;
       
-    } catch (error) {
-      console.error('Erro ao salvar resposta:', error);
+    } catch {
       setSaveStatus('error');
       
       // Se offline, manter no localStorage para retry
-      if (!navigator.onLine) {
-        console.log('Offline - resposta salva localmente para retry');
-      } else {
+      if (navigator.onLine) {
         // Reset status de erro após 5 segundos
         setTimeout(() => setSaveStatus('idle'), 5000);
       }
@@ -159,11 +156,7 @@ export function useAutoSave(diagnosticId: string | null) {
     const handleOnline = async () => {
       const draft = getDraft();
       if (draft && draft.answerText) {
-        console.log('Online - processando resposta pendente');
-        const success = await saveToServer(draft);
-        if (success) {
-          console.log('Resposta pendente sincronizada com sucesso');
-        }
+        await saveToServer(draft);
       }
     };
     

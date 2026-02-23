@@ -9,6 +9,7 @@ import type {
   EligibilityResponse,
   DiagnosticResultResponse,
   DiagnosticOwnerEmailResponse,
+  DiagnosticCurrentStateResponse,
   MicroDiagnosticAnswerInput,
   MicroDiagnosticStartResponse,
   MicroDiagnosticStateResponse,
@@ -120,8 +121,10 @@ export async function getResultPdfByToken(token: string): Promise<Blob> {
   return res.data as Blob;
 }
 
-export async function getCurrentState(diagnosticId: string) {
-  const { data } = await apiClient.get(
+export async function getCurrentState(
+  diagnosticId: string
+): Promise<DiagnosticCurrentStateResponse> {
+  const { data } = await apiClient.get<DiagnosticCurrentStateResponse>(
     `/diagnostic/${diagnosticId}/current-state`
   );
   return data;

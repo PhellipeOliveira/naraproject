@@ -9,23 +9,13 @@ import { AreasSilenciadasHeatmap } from "../components/dashboard/AreasSilenciada
 import { FadeIn } from "../components/result/AnimatedTransitions";
 import { RefreshCw, Download, TrendingUp } from "lucide-react";
 import { clearAdminToken } from "../lib/adminSession";
+import type {
+  DashboardCriseDistribution,
+  DashboardDataResponse,
+  DashboardRealtimeMetric,
+} from "../types";
 
-interface DashboardData {
-  period: {
-    days: number;
-    start_date: string;
-    end_date: string;
-  };
-  totals: {
-    diagnostics_started: number;
-    diagnostics_completed: number;
-    completion_rate: number;
-  };
-  realtime_metrics: any[];
-  motores_distribution: any[];
-  crises_distribution: any[];
-  areas_silenciadas: any[];
-}
+type DashboardData = DashboardDataResponse;
 
 interface KPIsData {
   period_days: number;
@@ -211,7 +201,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {data.crises_distribution.map((crise: any, index: number) => {
+                  {data.crises_distribution.map((crise: DashboardCriseDistribution, index: number) => {
                     const criseColors: Record<string, string> = {
                       "Identidade Raiz": "bg-red-500",
                       "Sentido e Direção": "bg-blue-500",
@@ -278,7 +268,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.realtime_metrics.map((metric: any, index: number) => (
+                    {data.realtime_metrics.map((metric: DashboardRealtimeMetric, index: number) => (
                       <tr key={index} className="border-b last:border-0 hover:bg-muted/50">
                         <td className="p-2 font-medium">
                           {new Date(metric.date).toLocaleDateString("pt-BR")}

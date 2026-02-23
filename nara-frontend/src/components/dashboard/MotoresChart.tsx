@@ -9,6 +9,27 @@ interface MotoresChartProps {
   }>;
 }
 
+interface PieCustomLabelProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+}
+
+interface TooltipFormatterContext {
+  payload?: {
+    percentage?: number;
+  };
+}
+
+interface LegendFormatterEntry {
+  payload?: {
+    value?: number;
+  };
+}
+
 const MOTOR_COLORS: Record<string, string> = {
   Necessidade: "#ef4444", // red-500
   Valor: "#3b82f6", // blue-500
@@ -44,7 +65,7 @@ export function MotoresChart({ data }: MotoresChartProps) {
     innerRadius,
     outerRadius,
     percent,
-  }: any) => {
+  }: PieCustomLabelProps) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
     const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
@@ -87,21 +108,21 @@ export function MotoresChart({ data }: MotoresChartProps) {
               {chartData.map((entry, index) => (
                 <Cell 
                   key={`cell-${index}`} 
-                  fill={MOTOR_COLORS[entry.name] || "#gray"} 
+                  fill={MOTOR_COLORS[entry.name] || "#9ca3af"} 
                 />
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number, name: string, props: any) => [
-                `${value} diagnósticos (${props.payload.percentage.toFixed(1)}%)`,
+              formatter={(value: number, name: string, context: TooltipFormatterContext) => [
+                `${value} diagnósticos (${(context.payload?.percentage ?? 0).toFixed(1)}%)`,
                 name
               ]}
             />
             <Legend 
               verticalAlign="bottom" 
               height={36}
-              formatter={(value: string, entry: any) => (
-                <span className="text-sm">{value} ({entry.payload.value})</span>
+              formatter={(value: string, entry: LegendFormatterEntry) => (
+                <span className="text-sm">{value} ({entry.payload?.value ?? 0})</span>
               )}
             />
           </PieChart>

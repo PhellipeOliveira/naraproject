@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { apiClient } from '../api/client';
+import type { Question, ProgressInfo } from '../types';
 
 export interface ExistingDiagnostic {
   exists: boolean;
@@ -23,13 +24,8 @@ export interface CurrentState {
   total_answers: number;
   total_words: number;
   areas_covered: string[];
-  questions: any[];
-  progress: {
-    overall: number;
-    questions: number;
-    words: number;
-    coverage: number;
-  };
+  questions: Question[];
+  progress: ProgressInfo;
 }
 
 export function useDiagnosticStart() {

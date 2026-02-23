@@ -434,22 +434,38 @@ async def send_resume_link(request: Request, diagnostic_id: str):
     Envia email com link para retomar o diagnóstico.
     Usado quando o usuário clica em "Sair e continuar depois".
     """
-    from app.services.email_service import email_service
     from app.database import supabase
-    
-    # Buscar diagnóstico
-    diag_result = supabase.table("diagnostics").select("*").eq(
-        "id", diagnostic_id
-    ).single().execute()
-    
+    from app.services.email_service import email_service
+
+    try:
+        diag_result = (
+            supabase.table("diagnostics")
+            .select("*")
+            .eq("id", diagnostic_id)
+            .single()
+            .execute()
+        )
+    except Exception as e:
+        logger.exception("Erro ao buscar diagnóstico para envio de retomada: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao consultar diagnóstico. Tente novamente.",
+        )
+
     if not diag_result.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Diagnóstico não encontrado"
+            detail="Diagnóstico não encontrado",
         )
-    
+
     diagnostic = diag_result.data
-    
+    email = (diagnostic.get("email") or "").strip()
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Diagnóstico sem email válido para envio.",
+        )
+
     # Buscar elegibilidade detalhada para enriquecer o email de retomada
     eligibility = await service.check_eligibility(diagnostic_id)
     total_answers = int(eligibility["criteria"]["questions"]["current"])
@@ -460,7 +476,7 @@ async def send_resume_link(request: Request, diagnostic_id: str):
     # Enviar email
     try:
         await email_service.send_resume_link(
-            to=diagnostic["email"],
+            to=email,
             user_name=diagnostic.get("full_name"),
             diagnostic_id=diagnostic_id,
             progress=progress,
@@ -472,7 +488,7 @@ async def send_resume_link(request: Request, diagnostic_id: str):
         
         return {
             "status": "sent",
-            "message": f"Email enviado para {diagnostic['email']}"
+            "message": f"Email enviado para {email}"
         }
     except Exception as e:
         logger.exception("send_resume_link failed for diagnostic_id=%s: %s", diagnostic_id, e)
