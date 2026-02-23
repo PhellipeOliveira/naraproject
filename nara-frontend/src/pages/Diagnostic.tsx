@@ -239,6 +239,10 @@ export default function Diagnostic() {
     }
   };
 
+  const handleSkip = () => {
+    goNext();
+  };
+
   const handleFinish = async () => {
     if (!id || !resultToken) return;
     setFinishing(true);
@@ -254,6 +258,13 @@ export default function Diagnostic() {
       setFinishing(false);
     }
   };
+
+  const isLastAvailableQuestion =
+    currentQuestionIndex === questions.length - 1 &&
+    totalAnswers + currentQuestionIndex + 1 >= 60;
+  const showOverSkipWarning =
+    !canFinish && isLastAvailableQuestion;
+  const questionsNeededToFinish = Math.max(0, 40 - totalAnswers);
 
   if (loading) {
     return (
@@ -371,6 +382,13 @@ export default function Diagnostic() {
           {submitError}
         </p>
       )}
+      {showOverSkipWarning && (
+        <p className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 p-3 rounded mb-4">
+          Você pulou muitas perguntas. Para finalizar o diagnóstico, volte e responda pelo menos{" "}
+          <strong>{questionsNeededToFinish}</strong> perguntas com 10+ palavras. Use o botão
+          &quot;Anterior&quot; para revisitar.
+        </p>
+      )}
       <div className="flex-1 py-6">
         <QuestionCard
           question={currentQuestion}
@@ -384,8 +402,10 @@ export default function Diagnostic() {
             }));
             goPrev();
           }}
+          onSkip={handleSkip}
           canPrev={currentQuestionIndex > 0}
           isSubmitting={submitting}
+          isLastQuestion={isLastAvailableQuestion}
         />
       </div>
 

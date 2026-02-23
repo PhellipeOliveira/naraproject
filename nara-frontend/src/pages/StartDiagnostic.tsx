@@ -1,15 +1,16 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
-import { startDiagnostic, checkExistingDiagnostic } from "../api/diagnostic";
+import { startDiagnostic, checkExistingDiagnostic, abandonDiagnostic } from "../api/diagnostic";
 import { LegalFooter } from "../components/LegalFooter";
+import { SharePopup } from "../components/SharePopup";
 import { useDiagnosticStore } from "../stores";
-import { getOrCreateSessionId, setStoredDiagnosticId } from "../lib/session";
+import { getOrCreateSessionId, setStoredDiagnosticId, clearDiagnosticId } from "../lib/session";
 
 const schema = z.object({
   email: z.string().email("Informe um e-mail válido"),
@@ -24,6 +25,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function StartDiagnostic() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isChecking, setIsChecking] = useState(false);
   const [existingDiagnostic, setExistingDiagnostic] = useState<{
     exists: boolean;
@@ -32,6 +34,8 @@ export default function StartDiagnostic() {
     started_at?: string;
   } | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const [isAbandoning, setIsAbandoning] = useState(false);
+  const [sharePopupOpen, setSharePopupOpen] = useState(false);
 
   const {
     register,
@@ -44,6 +48,25 @@ export default function StartDiagnostic() {
   });
 
   const email = watch("email");
+  const startDiagnosticShareUrl = useMemo(
+    () => `${typeof window !== "undefined" ? window.location.origin : ""}/diagnostico/iniciar`,
+    []
+  );
+
+  useEffect(() => {
+    const shouldOpenShare =
+      searchParams.get("compartilhar") === "1" || searchParams.get("share") === "1";
+    if (shouldOpenShare) {
+      setSharePopupOpen(true);
+    }
+  }, [searchParams]);
+
+  const handleCloseSharePopup = () => {
+    setSharePopupOpen(false);
+    if (searchParams.get("compartilhar") === "1" || searchParams.get("share") === "1") {
+      navigate("/diagnostico/iniciar", { replace: true });
+    }
+  };
 
   const onCheckExisting = async () => {
     if (!email) return;
@@ -125,6 +148,37 @@ export default function StartDiagnostic() {
     }
   };
 
+  const handleStartNew = async () => {
+    if (!existingDiagnostic?.diagnostic_id) {
+      setExistingDiagnostic(null);
+      return;
+    }
+    setIsAbandoning(true);
+    setStartError(null);
+    try {
+      await abandonDiagnostic(existingDiagnostic.diagnostic_id);
+      clearDiagnosticId();
+      useDiagnosticStore.getState().reset();
+      setStartError(null);
+      setExistingDiagnostic(null);
+    } catch (err: unknown) {
+      if (import.meta.env.DEV) {
+        console.error(err);
+      }
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : null;
+      setStartError(
+        message && typeof message === "string"
+          ? message
+          : "Não foi possível iniciar um novo diagnóstico. Tente novamente."
+      );
+    } finally {
+      setIsAbandoning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md">
@@ -142,11 +196,22 @@ export default function StartDiagnostic() {
                 respostas).
               </p>
               <div className="flex gap-2 justify-center">
-                <Button variant="outline" onClick={() => setExistingDiagnostic(null)}>
-                  Começar novo
+                <Button
+                  variant="outline"
+                  onClick={handleStartNew}
+                  disabled={isAbandoning}
+                >
+                  {isAbandoning ? "Preparando..." : "Começar novo"}
                 </Button>
-                <Button onClick={handleResume}>Continuar</Button>
+                <Button onClick={handleResume} disabled={isAbandoning}>
+                  Continuar
+                </Button>
               </div>
+              {startError && (
+                <p className="text-sm text-destructive bg-destructive/10 p-3 rounded text-center">
+                  {startError}
+                </p>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -222,6 +287,11 @@ export default function StartDiagnostic() {
           )}
         </CardContent>
       </Card>
+      <SharePopup
+        open={sharePopupOpen}
+        onClose={handleCloseSharePopup}
+        url={startDiagnosticShareUrl}
+      />
     </div>
   );
 }

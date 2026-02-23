@@ -107,6 +107,42 @@ export interface DiagnosticResultResponse {
   recommendations: Recommendation[];
 }
 
+export interface MicroReportResponse {
+  area: string;
+  micro_summary: string;
+  foco_tcc: string;
+  ancoras: string[];
+  proxima_acao_7_dias: string;
+}
+
+export interface MicroDiagnosticStartResponse {
+  micro_id: string;
+  status: string;
+  phase: number;
+  questions: Question[];
+  total_questions: number;
+}
+
+export interface MicroDiagnosticStateResponse {
+  micro_id: string;
+  status: string;
+  phase: number;
+  questions: Question[];
+  total_questions: number;
+  result?: MicroReportResponse | null;
+}
+
+export interface MicroDiagnosticAnswerInput {
+  question_id: number;
+  question_text: string;
+  question_area: string;
+  answer_text: string;
+}
+
+export interface DiagnosticOwnerEmailResponse {
+  email: string;
+}
+
 export interface SessionData {
   sessionId: string;
   diagnosticId?: string;

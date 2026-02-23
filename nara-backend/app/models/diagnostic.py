@@ -206,3 +206,9 @@ class MicroDiagnosticStateResponse(BaseModel):
     questions: List[QuestionResponse] = []
     total_questions: int = 0
     result: Optional[MicroReportResponse] = None
+
+
+class DiagnosticOwnerEmailResponse(BaseModel):
+    """Email do titular associado ao result_token."""
+
+    email: str

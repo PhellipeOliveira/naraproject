@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Button } from "../ui/button";
+import { Progress } from "../ui/progress";
 import type { Question } from "../../types";
+
+const MIN_WORDS = 10;
 
 interface QuestionCardProps {
   question: Question;
@@ -8,8 +11,10 @@ interface QuestionCardProps {
   onTextChange: (value: string) => void;
   onNext: () => void;
   onPrev: () => void;
+  onSkip: () => void;
   canPrev: boolean;
   isSubmitting: boolean;
+  isLastQuestion: boolean;
 }
 
 export function QuestionCard({
@@ -18,9 +23,14 @@ export function QuestionCard({
   onTextChange,
   onNext,
   onPrev,
+  onSkip,
   canPrev,
   isSubmitting,
+  isLastQuestion,
 }: QuestionCardProps) {
+  const wordCount = answerText.trim().split(/\s+/).filter(Boolean).length;
+  const canSave = wordCount >= MIN_WORDS;
+
   // Todas as perguntas são narrativas agora (open_long ou open_short)
   const isShort = question.type === "open_short";
   const minRows = isShort ? 2 : 4;
@@ -47,12 +57,24 @@ export function QuestionCard({
             onChange={(e) => onTextChange(e.target.value)}
             rows={minRows}
           />
-          <p className="text-xs text-muted-foreground">
-            {answerText.trim().split(/\s+/).filter(Boolean).length} palavras
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              {wordCount} palavras
+            </p>
+            {wordCount < MIN_WORDS && (
+              <p className="text-xs text-muted-foreground">
+                mínimo 10 palavras para gravar e continuar
+              </p>
+            )}
+            <Progress
+              value={Math.min(wordCount, MIN_WORDS)}
+              max={MIN_WORDS}
+              className="h-1.5 w-full max-w-[120px]"
+            />
+          </div>
         </div>
 
-        <div className="flex justify-between pt-4">
+        <div className="flex justify-between items-center gap-2 pt-4">
           <Button
             type="button"
             variant="outline"
@@ -61,13 +83,26 @@ export function QuestionCard({
           >
             Anterior
           </Button>
-          <Button
-            type="button"
-            onClick={onNext}
-            disabled={isSubmitting || answerText.trim().length === 0}
-          >
-            {isSubmitting ? "Salvando..." : "Continuar"}
-          </Button>
+          <div className="flex gap-2">
+            {!isLastQuestion && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onSkip}
+                disabled={isSubmitting}
+              >
+                Próximo
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={onNext}
+              disabled={isSubmitting || !canSave}
+              className={!canSave ? "opacity-60" : undefined}
+            >
+              {isSubmitting ? "Salvando..." : "Gravar e Continuar"}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
