@@ -120,11 +120,11 @@ async def analyze_answers_context(
                         "Ferramenta: Assunção Intencional.\n"
                         "- Hábitos (=Princípios): ações práticas que materializam narrativa "
                         "e identidade. Ferramenta: Assunção Intencional.\n\n"
-                        "ESTADOS METODOLÓGICOS:\n"
-                        "- M1: estado atual de crise ou conflito (o personagem que o usuário vive hoje)\n"
-                        "- MX: estado desejado, nova identidade escolhida\n"
-                        "- M2/M2X: comportamentos e práticas de transição entre M1 e MX\n"
-                        "- M3: referências externas (pessoas, ambientes, grupos) que modelam "
+                        "ESTADOS DA TRANSFORMAÇÃO:\n"
+                        "- Situação atual: estado de crise ou conflito (o que o usuário vive hoje)\n"
+                        "- Estado desejado: identidade e vida que a pessoa quer assumir\n"
+                        "- Caminho de transição: comportamentos e práticas que aproximam da mudança\n"
+                        "- Referências externas: pessoas, ambientes e grupos que ajudam a consolidar "
                         "a nova identidade\n\n"
                         "Analise estritamente pela metodologia NARA. Nunca use frameworks externos."
                     ),
@@ -243,12 +243,12 @@ Identifique:
 3. **Pontos de Entrada**: Quais portas de intervenção são mais evidentes?
 4. **Nível de Maturidade**: Baixo, Médio ou Alto
 5. **Tom Emocional**: frustração, esperança, confusão, determinação, etc
-6. **Áreas Críticas**: Quais das 12 áreas estão em maior conflito (M1)?
-7. **Sinais de Conflito**: Padrões específicos detectados
+6. **Áreas Críticas**: Quais das 12 áreas estão em maior conflito? (use linguagem simples em texto livre)
+7. **Sinais de Conflito**: Padrões específicos detectados (descreva em linguagem simples)
 8. **Âncoras Sugeridas**: Das 19 âncoras práticas, quais 3-5 são mais relevantes?
-9. **Memórias Vermelhas**: 2-4 frases literais do usuário que revelam conflito (M1)
-10. **Barreiras Identificadas**: Pontos de prova, autossabotagem, ambiente hostil
-11. **Capital Simbólico**: Recursos sociais/culturais já presentes
+9. **Memórias Vermelhas**: 2-4 frases literais do usuário que revelam conflito (explique sem jargões)
+10. **Barreiras Identificadas**: desafios, autossabotagem ou ambiente hostil (descreva sem jargões)
+11. **Capital Simbólico**: recursos sociais/culturais já presentes (descreva sem jargões)
 12. **FCU**: Forma, Conteúdo e Uso da expressão do usuário
 13. **Palavras Recorrentes**: termos frequentes da narrativa
 14. **Fase da Jornada**: Germinar|Enraizar|Desenvolver|Florescer|Frutificar|Realizar
@@ -298,6 +298,8 @@ Retorne JSON estrito:
   "justificativa_motor": "Breve explicação do motor dominante",
   "justificativa_clusters": "Breve explicação dos clusters"
 }}
+
+IMPORTANTE: Nos campos de texto livre (como `sinais_conflito`, `memorias_vermelhas`, `barreiras_identificadas`, `capital_simbolico`, `justificativa_motor` e `justificativa_clusters`), use linguagem simples e direta, evitando siglas e termos técnicos da metodologia.
 """
     return prompt
 
@@ -334,13 +336,13 @@ def compute_gap_mx(
                 if mx_text:
                     break
     if not mx_text:
-        mx_text = "MX não explicitado com clareza nas respostas."
+        mx_text = "Visão de futuro não explicitada com clareza nas respostas."
 
     gap_score = round(len(areas_criticas) * weight, 2)
     estado_m1 = f"Motor={motor}; CriseRaiz={crise_raiz}; AreasCriticas={len(areas_criticas)}"
     gap_description = (
-        f"A distância entre seu estado atual ({estado_m1}) e sua meta ({mx_text}) "
-        f"é marcada por {len(areas_criticas)} áreas em conflito e o motor {motor}."
+        f"A distância entre onde você está hoje e onde quer chegar é marcada por "
+        f"{len(areas_criticas)} áreas em conflito e pela sua força de motivação dominante ({motor})."
     )
     return {
         "estado_m1": estado_m1,
@@ -415,7 +417,7 @@ def _empty_analysis() -> dict[str, Any]:
             "estado_m1": "Dados insuficientes",
             "estado_mx": "Dados insuficientes",
             "gap_score": 0.0,
-            "gap_description": "Dados insuficientes para mapear Gap MX.",
+            "gap_description": "Dados insuficientes para mapear a distância entre situação atual e meta.",
         },
         "incongruencias_simbolicas": [],
         "justificativa_motor": "Dados insuficientes para análise",
