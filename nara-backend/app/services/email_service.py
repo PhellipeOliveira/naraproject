@@ -299,7 +299,7 @@ class EmailService:
             "summary": summary,
             "view_url": f"{settings.FRONTEND_URL}/resultado/{result_token}",
             "dashboard_url": f"{settings.FRONTEND_URL}/meu-diagnostico/{result_token}",
-            "start_url": f"{settings.FRONTEND_URL}/diagnostico/iniciar",
+            "start_url": f"{settings.FRONTEND_URL}/diagnostico/iniciar?compartilhar=1",
         }
         return await self.send_diagnostic_email(
             user_email=to,
@@ -328,7 +328,7 @@ class EmailService:
             areas_covered=areas_covered,
             can_finish=can_finish,
             resume_url=f"{settings.FRONTEND_URL}/diagnostico/{diagnostic_id}/retomar",
-            start_url=f"{settings.FRONTEND_URL}/diagnostico/iniciar",
+            start_url=f"{settings.FRONTEND_URL}/diagnostico/iniciar?compartilhar=1",
         )
         return await self.send_email(
             to=to,

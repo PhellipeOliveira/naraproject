@@ -138,12 +138,13 @@ class DiagnosticService:
             supabase.table("diagnostic_results")
             .select("detailed_analysis")
             .eq("diagnostic_id", diagnostic_id)
-            .single()
+            .limit(1)
             .execute()
         )
-        if not result.data:
+        if not result.data or len(result.data) == 0:
             return None
-        return self._sanitize_result_for_response(result.data.get("detailed_analysis"))
+        row = result.data[0]
+        return self._sanitize_result_for_response(row.get("detailed_analysis"))
 
     async def get_result_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado pelo token público."""
@@ -153,12 +154,27 @@ class DiagnosticService:
             supabase.table("diagnostics")
             .select("id")
             .eq("result_token", token)
+            .limit(1)
+            .execute()
+        )
+        if not diag_result.data or len(diag_result.data) == 0:
+            return None
+        return await self.get_result(str(diag_result.data[0]["id"]))
+
+    async def get_owner_email_by_token(self, token: str) -> Optional[str]:
+        """Obtém email do titular por result_token."""
+        from app.database import supabase
+
+        diag_result = (
+            supabase.table("diagnostics")
+            .select("email")
+            .eq("result_token", token)
             .single()
             .execute()
         )
         if not diag_result.data:
             return None
-        return await self.get_result(str(diag_result.data["id"]))
+        return (diag_result.data.get("email") or "").strip().lower() or None
 
     async def get_result_pdf_by_token(self, token: str) -> bytes:
         """Gera PDF do resultado a partir do token público."""
@@ -232,6 +248,25 @@ class DiagnosticService:
                 "started_at": d["created_at"],
             }
         return {"exists": False}
+
+    async def abandon_diagnostic(self, diagnostic_id: str) -> None:
+        """Marca o diagnóstico como abandonado (para permitir iniciar um novo com o mesmo email)."""
+        from app.database import supabase
+
+        result = (
+            supabase.table("diagnostics")
+            .select("id, status")
+            .eq("id", diagnostic_id)
+            .single()
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Diagnóstico não encontrado")
+        if result.data.get("status") != "in_progress":
+            raise ValueError("Diagnóstico não está em andamento")
+        supabase.table("diagnostics").update({"status": "abandoned"}).eq(
+            "id", diagnostic_id
+        ).execute()
 
     async def get_current_state(self, diagnostic_id: str) -> Dict[str, Any]:
         """Retorna o estado atual do diagnóstico para retomada."""

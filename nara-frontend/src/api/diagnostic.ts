@@ -8,6 +8,11 @@ import type {
   NextQuestionsResponse,
   EligibilityResponse,
   DiagnosticResultResponse,
+  DiagnosticOwnerEmailResponse,
+  MicroDiagnosticAnswerInput,
+  MicroDiagnosticStartResponse,
+  MicroDiagnosticStateResponse,
+  MicroReportResponse,
 } from "../types";
 
 export interface StartDiagnosticPayload {
@@ -99,9 +104,68 @@ export async function getResultByToken(
   return data;
 }
 
+export async function getOwnerEmailByToken(
+  token: string
+): Promise<DiagnosticOwnerEmailResponse> {
+  const { data } = await apiClient.get<DiagnosticOwnerEmailResponse>(
+    `/diagnostic/result/${token}/owner-email`
+  );
+  return data;
+}
+
+export async function getResultPdfByToken(token: string): Promise<Blob> {
+  const res = await apiClient.get(`/diagnostic/result/${token}/pdf`, {
+    responseType: "blob",
+  });
+  return res.data as Blob;
+}
+
 export async function getCurrentState(diagnosticId: string) {
   const { data } = await apiClient.get(
     `/diagnostic/${diagnosticId}/current-state`
+  );
+  return data;
+}
+
+export async function startMicroDiagnostic(
+  token: string,
+  area: string
+): Promise<MicroDiagnosticStartResponse> {
+  const { data } = await apiClient.post<MicroDiagnosticStartResponse>(
+    `/diagnostic/result/${token}/micro-diagnostic/start`,
+    { area }
+  );
+  return data;
+}
+
+export async function getMicroDiagnosticState(
+  token: string,
+  microId: string
+): Promise<MicroDiagnosticStateResponse> {
+  const { data } = await apiClient.get<MicroDiagnosticStateResponse>(
+    `/diagnostic/result/${token}/micro-diagnostic/${microId}`
+  );
+  return data;
+}
+
+export async function submitMicroDiagnosticAnswers(
+  token: string,
+  microId: string,
+  answers: MicroDiagnosticAnswerInput[]
+): Promise<MicroDiagnosticStateResponse> {
+  const { data } = await apiClient.post<MicroDiagnosticStateResponse>(
+    `/diagnostic/result/${token}/micro-diagnostic/${microId}/submit`,
+    { answers }
+  );
+  return data;
+}
+
+export async function finishMicroDiagnostic(
+  token: string,
+  microId: string
+): Promise<MicroReportResponse> {
+  const { data } = await apiClient.post<MicroReportResponse>(
+    `/diagnostic/result/${token}/micro-diagnostic/${microId}/finish`
   );
   return data;
 }
@@ -121,4 +185,12 @@ export async function checkExistingDiagnostic(email: string) {
     started_at?: string;
   }>(`/diagnostic/check-existing`, { params: { email: normalizeEmail(email) } });
   return data;
+}
+
+/**
+ * Abandona o diagnóstico em andamento (status → abandoned).
+ * Permite iniciar um novo diagnóstico com o mesmo e-mail.
+ */
+export async function abandonDiagnostic(diagnosticId: string): Promise<void> {
+  await apiClient.post(`/diagnostic/${diagnosticId}/abandon`);
 }

@@ -8,6 +8,7 @@ from pydantic import EmailStr
 from app.models.diagnostic import (
     AnswerSubmitRequest,
     AnswerSubmitResponse,
+    DiagnosticOwnerEmailResponse,
     DiagnosticStartRequest,
     DiagnosticStartResponse,
     EligibilityResponse,
@@ -74,6 +75,23 @@ async def start_diagnostic(request: Request, payload: DiagnosticStartRequest):
         total_questions=result["total_questions"],
         result_token=result["result_token"],
     )
+
+
+@router.post("/{diagnostic_id}/abandon")
+@limiter.limit("10/minute")
+async def abandon_diagnostic(request: Request, diagnostic_id: str):
+    """
+    Marca o diagnóstico como abandonado.
+    Usado quando o usuário escolhe "Começar novo" na tela de início.
+    """
+    try:
+        await service.abandon_diagnostic(diagnostic_id)
+        return {"status": "abandoned"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
 
 
 @router.post("/{diagnostic_id}/answer", response_model=AnswerSubmitResponse)
@@ -214,6 +232,19 @@ async def get_result_by_token(request: Request, token: str):
             detail="Resultado não encontrado ou token inválido.",
         )
     return DiagnosticResultResponse(**result)
+
+
+@router.get("/result/{token}/owner-email", response_model=DiagnosticOwnerEmailResponse)
+@limiter.limit("30/minute")
+async def get_owner_email_by_token(request: Request, token: str):
+    """Obtém email do titular associado ao token público."""
+    email = await service.get_owner_email_by_token(token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diagnóstico não encontrado ou token inválido.",
+        )
+    return DiagnosticOwnerEmailResponse(email=email)
 
 
 @router.get("/result/{token}/pdf")

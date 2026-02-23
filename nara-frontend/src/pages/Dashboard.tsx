@@ -32,6 +32,7 @@ interface KPIsData {
   total_diagnostics_started: number;
   total_diagnostics_completed: number;
   avg_completion_rate: number;
+  avg_words_per_answer?: number;
   motor_mais_comum: {
     name: string;
     count: number;
@@ -44,6 +45,13 @@ interface KPIsData {
     name: string;
     count: number;
   };
+  recent_completed_diagnostics?: Array<{
+    diagnostic_id: string;
+    motor_dominante?: string;
+    crise_raiz?: string;
+    phase_identified?: string | number | null;
+    created_at?: string;
+  }>;
 }
 
 export default function Dashboard() {
@@ -53,6 +61,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [periodDays, setPeriodDays] = useState<7 | 30 | 90>(30);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -60,8 +69,8 @@ export default function Dashboard() {
 
     try {
       const [dashboardRes, kpisRes] = await Promise.all([
-        apiClient.get("/analytics/dashboard"),
-        apiClient.get("/analytics/kpis"),
+        apiClient.get("/analytics/dashboard", { params: { days: periodDays } }),
+        apiClient.get("/analytics/kpis", { params: { days: periodDays } }),
       ]);
 
       setData(dashboardRes.data);
@@ -76,7 +85,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodDays]);
 
   const handleRefresh = () => {
     fetchDashboardData();
@@ -134,6 +144,8 @@ export default function Dashboard() {
     return null;
   }
 
+  const recentCompleted = (kpis as KPIsData).recent_completed_diagnostics ?? [];
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -149,7 +161,20 @@ export default function Dashboard() {
                 Última atualização: {lastUpdate.toLocaleTimeString()}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-2">
+                {[7, 30, 90].map((d) => (
+                  <Button
+                    key={d}
+                    onClick={() => setPeriodDays(d as 7 | 30 | 90)}
+                    variant={periodDays === d ? "default" : "outline"}
+                    size="sm"
+                    disabled={loading}
+                  >
+                    {d} dias
+                  </Button>
+                ))}
+              </div>
               <Button onClick={handleRefresh} variant="outline" size="sm">
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Atualizar
@@ -275,6 +300,52 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+            </CardContent>
+          </Card>
+        </FadeIn>
+
+        {/* Diagnósticos completados recentes */}
+        <FadeIn delay={550}>
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Últimos diagnósticos completados</h3>
+              <p className="text-sm text-muted-foreground">
+                Lista dos diagnósticos finalizados mais recentes (motor, crise e fase).
+              </p>
+            </CardHeader>
+            <CardContent>
+              {recentCompleted.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sem diagnósticos completados recentes.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b">
+                      <tr className="text-left">
+                        <th className="p-2 font-semibold">Data</th>
+                        <th className="p-2 font-semibold">Motor</th>
+                        <th className="p-2 font-semibold">Crise</th>
+                        <th className="p-2 font-semibold">Fase</th>
+                        <th className="p-2 font-semibold">ID</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentCompleted.map((row, index) => (
+                        <tr key={`${row.diagnostic_id}-${index}`} className="border-b last:border-0 hover:bg-muted/50">
+                          <td className="p-2 font-medium">
+                            {row.created_at ? new Date(row.created_at).toLocaleDateString("pt-BR") : "-"}
+                          </td>
+                          <td className="p-2">{row.motor_dominante ?? "-"}</td>
+                          <td className="p-2">{row.crise_raiz ?? "-"}</td>
+                          <td className="p-2">{row.phase_identified ?? "-"}</td>
+                          <td className="p-2 font-mono text-xs text-muted-foreground">
+                            {String(row.diagnostic_id).slice(0, 8)}…
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </FadeIn>
