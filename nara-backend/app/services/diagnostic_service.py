@@ -1,5 +1,6 @@
 """Serviço de orquestração do diagnóstico."""
 import json
+import logging
 from typing import Any, Dict, Optional
 
 from app.config import settings
@@ -11,6 +12,7 @@ from app.services.pdf_service import build_diagnostic_pdf
 
 pipeline = NaraDiagnosticPipeline()
 email_service = EmailService()
+logger = logging.getLogger(__name__)
 
 
 class DiagnosticService:
@@ -116,8 +118,9 @@ class DiagnosticService:
                     overall_score=report.get("overall_score", 0),
                     summary=(report.get("executive_summary") or "")[:500],
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                # O relatório já foi gerado; falha de envio de email não deve quebrar o fluxo principal.
+                logger.warning("Falha ao enviar email de resultado para %s: %s", diagnostic_id, exc)
 
         return report
 

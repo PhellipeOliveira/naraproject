@@ -46,10 +46,11 @@ export default function Diagnostic() {
 
   // Restaurar o texto da pergunta atual ao navegar (Anterior/Próximo), para o usuário poder editar.
   useEffect(() => {
-    if (currentQuestion) {
-      setLocalAnswerText(answersByQuestionId[currentQuestion.id] ?? "");
+    const questionId = questions[currentQuestionIndex]?.id;
+    if (questionId !== undefined) {
+      setLocalAnswerText(answersByQuestionId[questionId] ?? "");
     }
-  }, [currentQuestion?.id, currentQuestionIndex, answersByQuestionId]);
+  }, [questions, currentQuestionIndex, answersByQuestionId]);
 
   const syncState = useCallback(
     async (diagId: string) => {

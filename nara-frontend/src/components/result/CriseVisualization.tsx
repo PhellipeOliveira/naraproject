@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { AlertTriangle, User, Compass, Wrench, Users, Shuffle, TrendingUp } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface CriseVisualizationProps {
   criseRaiz: string;
@@ -7,7 +8,7 @@ interface CriseVisualizationProps {
   areasSilenciadas?: number[];
 }
 
-const criseIcons: Record<string, any> = {
+const criseIcons: Record<string, LucideIcon> = {
   "Identidade Raiz": User,
   "Sentido e Direção": Compass,
   "Execução e Estrutura": Wrench,
