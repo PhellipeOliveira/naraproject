@@ -187,7 +187,8 @@ ANCORAS_PRATICAS = [
     "Testemunhas",
 ]
 
-# Domínios Temáticos — 01_BASE_METODOLOGICA § I.3 (Fases da Jornada)
+# Domínios Temáticos — 01_BASE_METODOLOGICA § I.3
+# Ferramentas transversais às 6 Fases da Jornada (não são fases).
 DOMINIOS_TEMATICOS = {
     "D1": "Motivações e Conflitos",
     "D2": "Crenças, Valores e Princípios",
@@ -244,7 +245,8 @@ MOTORES_DETALHADOS = {
     },
 }
 
-# Domínios Temáticos completos com pergunta-chave e fase de potência
+# Domínios Temáticos completos com pergunta-chave e fase de maior potência
+# (correlação de intervenção, não equivalência Domínio = Fase).
 DOMINIOS_TEMATICOS_COMPLETOS = {
     "D1": {
         "nome": "Motivações e Conflitos",

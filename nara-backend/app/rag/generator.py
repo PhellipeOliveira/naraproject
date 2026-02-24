@@ -100,13 +100,18 @@ Germinar → Enraizar → Desenvolver → Florescer → Frutificar → Realizar
 - Identidade e valores: "Quem você está sendo nesta área? Quem escolheria ser?"
 - Hábitos e prática diária: "Qual microação coerente com a pessoa que você quer ser você pode começar hoje?"
 
-### DOMÍNIOS DE APOIO (NOMES ACESSÍVEIS):
-- Motivação e Conflitos (Germinar): "O que está te movendo — e o que está te travando?"
-- Crenças e Valores (Enraizar): "O que é inegociável para você nesta área?"
-- Evolução e Desenvolvimento (Desenvolver): "Você está se tornando quem deseja ser?"
-- Identidade e Ambiente (Florescer): "Sua expressão é fiel à sua essência ou moldada pelo ambiente?"
-- Transformação de Identidade (Frutificar): "Quem você está sendo nesta fase da vida?"
-- Papel no Mundo (Realizar): "Como sua história contribui para o mundo?"
+### DOMÍNIOS TEMÁTICOS (FERRAMENTAS TRANSVERSAIS):
+Fase da Jornada e Domínio Temático são conceitos distintos:
+- Fase da Jornada = onde a pessoa está no processo de transformação.
+- Domínio Temático = lente de diagnóstico/intervenção que atravessa todas as fases.
+
+Use os domínios com linguagem acessível e considere a fase de maior potência apenas como correlação:
+- D1 Motivação e Conflitos — maior potência em Germinar: "O que está te movendo — e o que está te travando?"
+- D2 Crenças e Valores — maior potência em Enraizar: "O que é inegociável para você nesta área?"
+- D3 Evolução e Desenvolvimento — maior potência em Desenvolver: "Você está se tornando quem deseja ser?"
+- D4 Identidade e Ambiente — maior potência em Florescer: "Sua expressão é fiel à sua essência ou moldada pelo ambiente?"
+- D5 Transformação de Identidade — maior potência em Frutificar: "Quem você está sendo nesta fase da vida?"
+- D6 Papel no Mundo — maior potência em Realizar: "Como sua história contribui para o mundo?"
 
 ### BARREIRAS COMO SINAL DE CRESCIMENTO:
 Quando a pessoa trouxer resistência, trate isso como oportunidade de evolução:

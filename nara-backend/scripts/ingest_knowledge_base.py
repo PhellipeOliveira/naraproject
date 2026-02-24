@@ -21,11 +21,12 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
-from app.database import supabase
 from app.rag.embeddings import generate_embeddings_batch
+from app.rag.ingest import upsert_chunks_for_source
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
+KNOWLEDGE_BASE_SOURCE = "documentos/01_BASE_METODOLOGICA_NARA.md"
 
 
 def _extract_part_v_json_blocks(doc_text: str) -> list[dict[str, Any]]:
@@ -76,29 +77,47 @@ def _to_row(entry: dict[str, Any], embedding: list[float]) -> dict[str, Any]:
     else:
         ponto_entrada = None
 
-    # Inferência simples de estágio da jornada com base nos componentes do domínio M2.
+    # Heurística de relevância para retrieval:
+    # - Domínios são lentes transversais e não substituem as fases.
+    # - Aqui inferimos domínios sugeridos e uma fase de maior correlação para priorização.
     componentes_texto = " ".join([str(c).lower() for c in componentes_dominio_m2 if c])
+    dominios_sugeridos: list[str] = []
     if any(k in componentes_texto for k in ["motiva", "conflito", "semente"]):
+        dominios_sugeridos.append("D1")
+    if any(k in componentes_texto for k in ["crença", "crenca", "valor", "princípio", "principio"]):
+        dominios_sugeridos.append("D2")
+    if any(k in componentes_texto for k in ["disciplina", "hábito", "habito", "desenvolv"]):
+        dominios_sugeridos.append("D3")
+    if any(k in componentes_texto for k in ["congruência", "congruencia", "cultura", "expressão", "expressao"]):
+        dominios_sugeridos.append("D4")
+    if any(k in componentes_texto for k in ["personagem", "transformação", "transformacao"]):
+        dominios_sugeridos.append("D5")
+    if any(k in componentes_texto for k in ["sociedade", "impacto", "legado"]):
+        dominios_sugeridos.append("D6")
+
+    # Fase de maior correlação usada como fallback de ranqueamento semântico.
+    if "D1" in dominios_sugeridos:
         estagio_jornada = "Germinar"
-    elif any(k in componentes_texto for k in ["crença", "crenca", "valor", "princípio", "principio"]):
+    elif "D2" in dominios_sugeridos:
         estagio_jornada = "Enraizar"
-    elif any(k in componentes_texto for k in ["disciplina", "hábito", "habito", "desenvolv"]):
+    elif "D3" in dominios_sugeridos:
         estagio_jornada = "Desenvolver"
-    elif any(k in componentes_texto for k in ["congruência", "congruencia", "cultura", "expressão", "expressao"]):
+    elif "D4" in dominios_sugeridos:
         estagio_jornada = "Florescer"
-    elif any(k in componentes_texto for k in ["personagem", "transformação", "transformacao"]):
+    elif "D5" in dominios_sugeridos:
         estagio_jornada = "Frutificar"
-    elif any(k in componentes_texto for k in ["sociedade", "impacto", "legado"]):
+    elif "D6" in dominios_sugeridos:
         estagio_jornada = "Realizar"
     else:
         estagio_jornada = None
 
     metadata = {
         "source_file": "01_BASE_METODOLOGICA_NARA.md",
-        "source_version": "parte_v_knowledge_base",
+        "source": KNOWLEDGE_BASE_SOURCE,
         "chunk_strategy": "knowledge_base_json",
         "area_id": area_id,
         "componentes_dominio_m2": componentes_dominio_m2,
+        "dominios_sugeridos": dominios_sugeridos,
         "sinais_conflito_m1": sinais_conflito_m1,
         "perguntas_diagnosticas": entry.get("perguntas_diagnosticas", []),
         "indicadores_positivos": entry.get("indicadores_positivos", []),
@@ -118,6 +137,7 @@ def _to_row(entry: dict[str, Any], embedding: list[float]) -> dict[str, Any]:
     extended_content = "".join([part for part in extended_content_parts if part.strip()])
 
     return {
+        "source": KNOWLEDGE_BASE_SOURCE,
         "chapter": chapter,
         "section": section,
         "content": extended_content,
@@ -132,9 +152,8 @@ def _to_row(entry: dict[str, Any], embedding: list[float]) -> dict[str, Any]:
         "nivel_maturidade": None,
         "subtipo_crise": None,
         "tipo_conteudo": "knowledge_base",
-        "dominio": None,
+        "dominio": dominios_sugeridos or None,
         "is_active": True,
-        "version": settings.RAG_CHUNK_VERSION,
     }
 
 
@@ -169,8 +188,8 @@ async def main() -> None:
     embeddings = await generate_embeddings_batch(contents)
     rows = [_to_row(entry, embeddings[idx]) for idx, entry in enumerate(entries)]
 
-    inserted = supabase.table("knowledge_chunks").insert(rows).execute()
-    logger.info("Inserção concluída. Registros inseridos: %d", len(inserted.data or []))
+    inserted_count = upsert_chunks_for_source(KNOWLEDGE_BASE_SOURCE, rows)
+    logger.info("Upsert concluído. Registros inseridos: %d", inserted_count)
 
 
 if __name__ == "__main__":

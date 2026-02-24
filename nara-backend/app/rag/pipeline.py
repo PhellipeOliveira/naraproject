@@ -221,6 +221,54 @@ class NaraDiagnosticPipeline:
 
         return BASELINE_QUESTIONS
 
+    def _build_fallback_questions_for_phase(
+        self,
+        underrepresented: List[str],
+        dedup_texts: set[str],
+        need_count: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gera perguntas fallback determinísticas para evitar fase com menos de 10 perguntas.
+        Não depende de LLM e prioriza áreas com menor cobertura.
+        """
+        if need_count <= 0:
+            return []
+
+        ordered_areas: List[str] = [a for a in underrepresented if a in self.AREAS]
+        ordered_areas.extend([a for a in self.AREAS if a not in ordered_areas])
+
+        fallback: List[Dict[str, Any]] = []
+        area_idx = 0
+        attempt = 0
+        while len(fallback) < need_count and ordered_areas:
+            area = ordered_areas[area_idx % len(ordered_areas)]
+            variant = attempt % 3
+            if variant == 0:
+                text = f"O que está mais vivo em {area} no seu momento atual?"
+            elif variant == 1:
+                text = f"Qual mudança mais urgente você deseja viver em {area} nos próximos 30 dias?"
+            else:
+                text = f"Que padrão em {area} você quer interromper agora para abrir espaço para uma versão mais alinhada de você?"
+
+            text_norm = text.strip().lower()
+            if text_norm and text_norm not in dedup_texts:
+                dedup_texts.add(text_norm)
+                fallback.append({
+                    "area": area,
+                    "type": "open_long",
+                    "text": text,
+                    "follow_up_hint": "Pergunta fallback para manter continuidade do diagnóstico.",
+                })
+
+            area_idx += 1
+            attempt += 1
+
+            # Evita loop infinito em caso de deduplicação excessiva.
+            if attempt > need_count * 20:
+                break
+
+        return fallback
+
     async def start(
         self,
         email: str,
@@ -236,6 +284,7 @@ class NaraDiagnosticPipeline:
         result_token = f"nara_{uuid.uuid4().hex[:12]}"
         email_normalized = (email or "").strip().lower()
 
+        phase1_count = len(self.baseline_questions)
         diagnostic_data: Dict[str, Any] = {
             "user_id": user_id,
             "anonymous_session_id": session_id if not user_id else None,
@@ -244,7 +293,7 @@ class NaraDiagnosticPipeline:
             "status": "in_progress",
             "current_phase": 1,
             "current_question": 0,
-            "current_phase_questions_count": 15,
+            "current_phase_questions_count": phase1_count,
             "total_answers": 0,
             "total_words": 0,
             "areas_covered": [],  # DB pode ser SMALLINT[]; Supabase aceita lista vazia
@@ -416,6 +465,23 @@ class NaraDiagnosticPipeline:
         )
         answers = answers_result.data or []
 
+        # Trava de progressão: fases 2, 3 e 4 exigem no mínimo 10 respostas na fase atual
+        MIN_ANSWERS_TO_UNLOCK_NEXT_PHASE = 10
+        if current >= 2:
+            phase_questions_count_raw = diagnostic.get("current_phase_questions_count")
+            phase_questions_count = (
+                int(phase_questions_count_raw)
+                if isinstance(phase_questions_count_raw, (int, float, str))
+                and str(phase_questions_count_raw).isdigit()
+                else settings.QUESTIONS_PER_PHASE
+            )
+            required_in_phase = min(MIN_ANSWERS_TO_UNLOCK_NEXT_PHASE, phase_questions_count)
+            count_in_phase = sum(1 for a in answers if a.get("question_phase") == current)
+            if count_in_phase < required_in_phase:
+                raise ValueError(
+                    f"Por favor, volte e responda no mínimo {required_in_phase} questões desta fase para prosseguir."
+                )
+
         areas_count: Dict[str, int] = {}
         for a in answers:
             area = a.get("question_area", "Geral")
@@ -505,19 +571,64 @@ class NaraDiagnosticPipeline:
                 adaptive_templates=[],
                 max_questions=llm_question_count,
             )
-            llm_questions = [
-                {
-                    "area": q.get("area", "Geral"),
-                    "type": q.get("type", "open_long"),
-                    "text": q.get("text", ""),
-                    "follow_up_hint": q.get("follow_up_hint", ""),
-                }
-                for q in llm_generated
-                if q.get("text")
-            ]
+            for q in llm_generated:
+                if not q.get("text"):
+                    continue
+                txt_norm = str(q.get("text", "")).strip().lower()
+                if txt_norm and txt_norm not in dedup_texts:
+                    dedup_texts.add(txt_norm)
+                    llm_questions.append({
+                        "area": q.get("area", "Geral"),
+                        "type": q.get("type", "open_long"),
+                        "text": q.get("text", ""),
+                        "follow_up_hint": q.get("follow_up_hint", ""),
+                    })
         combined_questions = template_questions + llm_questions
+        QUESTIONS_PER_PHASE_FIXED = 15
+        while len(combined_questions) < QUESTIONS_PER_PHASE_FIXED:
+            need = QUESTIONS_PER_PHASE_FIXED - len(combined_questions)
+            extra = await generate_adaptive_questions(
+                user_responses=answers,
+                underrepresented_areas=underrepresented,
+                identified_patterns=patterns,
+                rag_context=rag_context,
+                phase=next_phase,
+                adaptive_templates=[],
+                max_questions=need,
+            )
+            added = 0
+            for q in extra:
+                if added >= need:
+                    break
+                if not q.get("text"):
+                    continue
+                txt_norm = str(q.get("text", "")).strip().lower()
+                if txt_norm and txt_norm not in dedup_texts:
+                    dedup_texts.add(txt_norm)
+                    combined_questions.append({
+                        "area": q.get("area", "Geral"),
+                        "type": q.get("type", "open_long"),
+                        "text": q.get("text", ""),
+                        "follow_up_hint": q.get("follow_up_hint", ""),
+                    })
+                    added += 1
+            if added == 0:
+                break
+
+        MIN_PHASE_QUESTIONS_FOR_UNLOCK = 10
+        if len(combined_questions) < MIN_PHASE_QUESTIONS_FOR_UNLOCK:
+            need_fallback = MIN_PHASE_QUESTIONS_FOR_UNLOCK - len(combined_questions)
+            combined_questions.extend(
+                self._build_fallback_questions_for_phase(
+                    underrepresented=underrepresented,
+                    dedup_texts=dedup_texts,
+                    need_count=need_fallback,
+                )
+            )
+
+        combined_questions = combined_questions[:QUESTIONS_PER_PHASE_FIXED]
         questions: List[Dict[str, Any]] = []
-        for idx, q in enumerate(combined_questions[:15], start=1):
+        for idx, q in enumerate(combined_questions, start=1):
             questions.append({
                 "id": (next_phase - 1) * 15 + idx,
                 "area": q.get("area", "Geral"),

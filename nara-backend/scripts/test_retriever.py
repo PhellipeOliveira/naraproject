@@ -17,9 +17,10 @@ from app.rag.retriever import retrieve_relevant_chunks, retrieve_for_question_ge
 
 async def run() -> int:
     print("\n=== TESTE DO RETRIEVER RAG ===")
-    print(f"Config: RAG_CHUNK_VERSION={settings.RAG_CHUNK_VERSION}  "
-          f"RAG_CHUNK_STRATEGY={settings.RAG_CHUNK_STRATEGY}  "
-          f"threshold={settings.RAG_SIMILARITY_THRESHOLD}  top_k={settings.RAG_TOP_K}\n")
+    print(
+        f"Config: threshold={settings.RAG_SIMILARITY_THRESHOLD}  "
+        f"top_k={settings.RAG_TOP_K}\n"
+    )
 
     queries = [
         "motores motivacionais jornada transformação",
@@ -37,10 +38,10 @@ async def run() -> int:
             if n > 0:
                 c = chunks[0]
                 meta = c.get("metadata") or {}
-                version_in_row = c.get("version")
+                source_in_row = c.get("source")
                 strategy_in_meta = meta.get("chunk_strategy")
                 print(f"     chapter={c.get('chapter')}  section={c.get('section')}")
-                print(f"     version={version_in_row}  chunk_strategy={strategy_in_meta}")
+                print(f"     source={source_in_row}  chunk_strategy={strategy_in_meta}")
                 print(f"     preview: {c.get('content', '')[:80].replace(chr(10), ' ')}...")
                 total_ok += 1
             else:

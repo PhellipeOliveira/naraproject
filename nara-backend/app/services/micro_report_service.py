@@ -49,6 +49,7 @@ Sempre explique por que a técnica foi escolhida.
 
 DOMÍNIO TEMÁTICO: identifique qual dos 6 domínios tem maior potência para
 a fase atual do usuário nesta área e estruture a intervenção neste domínio.
+Fase da Jornada e Domínio Temático não são sinônimos: fase indica o momento do processo, domínio define a lente de intervenção.
 
 ÂNCORAS PRÁTICAS: escolha 2-3 âncoras das 19 disponíveis com justificativa metodológica.
 Evite clichês. Use linguagem direta e acessível.

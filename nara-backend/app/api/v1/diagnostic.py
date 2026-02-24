@@ -138,6 +138,9 @@ async def get_next_questions(request: Request, diagnostic_id: str):
         msg = str(e) if str(e) else "Diagnóstico não encontrado"
         if "Não há próxima fase" in msg or "completou todas as fases" in msg:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+        msg_lower = msg.lower()
+        if ("mínimo" in msg_lower or "minimo" in msg_lower) and "quest" in msg_lower and "fase" in msg_lower:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
     except Exception as e:
         logger.exception("Erro ao gerar próximas perguntas: %s", e)
