@@ -181,112 +181,170 @@ export default function StartDiagnostic() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <h1 className="text-2xl font-bold text-center">Diagnóstico NARA</h1>
-          <p className="text-sm text-muted-foreground text-center">
-            Transformação Narrativa — 12 Áreas da Vida
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {existingDiagnostic?.exists ? (
-            <div className="space-y-3 text-center">
-              <p className="text-sm text-muted-foreground">
-                Você já tem um diagnóstico em andamento ({existingDiagnostic.total_answers ?? 0}{" "}
-                respostas).
-              </p>
-              <div className="flex gap-2 justify-center">
-                <Button
-                  variant="outline"
-                  onClick={handleStartNew}
-                  disabled={isAbandoning}
-                >
-                  {isAbandoning ? "Preparando..." : "Começar novo"}
-                </Button>
-                <Button onClick={handleResume} disabled={isAbandoning}>
-                  Continuar
-                </Button>
-              </div>
-              {startError && (
-                <p className="text-sm text-destructive bg-destructive/10 p-3 rounded text-center">
-                  {startError}
+      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-stretch">
+        <Card className="w-full max-w-md mx-auto md:max-w-none">
+          <CardHeader>
+            <h1 className="text-2xl font-bold text-center">Diagnóstico NARA</h1>
+            <p className="text-sm text-muted-foreground text-center">
+              Transformação Narrativa — 12 Áreas da Vida
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {existingDiagnostic?.exists ? (
+              <div className="space-y-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Você já tem um diagnóstico em andamento ({existingDiagnostic.total_answers ?? 0}{" "}
+                  respostas).
                 </p>
-              )}
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">E-mail</label>
-                <Input
-                  type="email"
-                  placeholder="seu@email.com"
-                  className="mt-1"
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={handleStartNew}
+                    disabled={isAbandoning}
+                  >
+                    {isAbandoning ? "Preparando..." : "Começar novo"}
+                  </Button>
+                  <Button onClick={handleResume} disabled={isAbandoning}>
+                    Continuar
+                  </Button>
+                </div>
+                {startError && (
+                  <p className="text-sm text-destructive bg-destructive/10 p-3 rounded text-center">
+                    {startError}
+                  </p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium">Nome (opcional)</label>
-                <Input placeholder="Seu nome" className="mt-1" {...register("full_name")} />
-              </div>
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  id="consent_privacy"
-                  {...register("consent_privacy")}
-                  className="mt-1"
-                />
-                <label htmlFor="consent_privacy" className="text-sm">
-                  Aceito a{" "}
-                  <Link to="/politica-de-privacidade" className="underline">
-                    politica de privacidade
-                  </Link>{" "}
-                  e os{" "}
-                  <Link to="/termos-de-uso" className="underline">
-                    termos de uso
-                  </Link>
-                  , incluindo o uso dos meus dados para geracao do diagnostico.
-                </label>
-              </div>
-              {errors.consent_privacy && (
-                <p className="text-sm text-destructive">{errors.consent_privacy.message}</p>
-              )}
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  id="consent_marketing"
-                  {...register("consent_marketing")}
-                  className="mt-1"
-                />
-                <label htmlFor="consent_marketing" className="text-sm">
-                  Desejo receber novidades e conteúdos da NARA por e-mail.
-                </label>
-              </div>
-              {startError && (
-                <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">
-                  {startError}
-                </p>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onCheckExisting}
-                  disabled={!email || isChecking}
-                >
-                  {isChecking ? "Verificando..." : "Já tenho diagnóstico"}
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Iniciando..." : "Iniciar diagnóstico"}
-                </Button>
-              </div>
-              <LegalFooter />
-            </form>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">E-mail</label>
+                  <Input
+                    type="email"
+                    placeholder="seu@email.com"
+                    className="mt-1"
+                    {...register("email")}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Nome (opcional)</label>
+                  <Input placeholder="Seu nome" className="mt-1" {...register("full_name")} />
+                </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="consent_privacy"
+                    {...register("consent_privacy")}
+                    className="mt-1"
+                  />
+                  <label htmlFor="consent_privacy" className="text-sm">
+                    Aceito a{" "}
+                    <Link to="/politica-de-privacidade" className="underline">
+                      politica de privacidade
+                    </Link>{" "}
+                    e os{" "}
+                    <Link to="/termos-de-uso" className="underline">
+                      termos de uso
+                    </Link>
+                    , incluindo o uso dos meus dados para geracao do diagnostico.
+                  </label>
+                </div>
+                {errors.consent_privacy && (
+                  <p className="text-sm text-destructive">{errors.consent_privacy.message}</p>
+                )}
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="consent_marketing"
+                    {...register("consent_marketing")}
+                    className="mt-1"
+                  />
+                  <label htmlFor="consent_marketing" className="text-sm">
+                    Desejo receber novidades e conteúdos da NARA por e-mail.
+                  </label>
+                </div>
+                {startError && (
+                  <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">
+                    {startError}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onCheckExisting}
+                    disabled={!email || isChecking}
+                  >
+                    {isChecking ? "Verificando..." : "Já tenho diagnóstico"}
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Iniciando..." : "Iniciar diagnóstico"}
+                  </Button>
+                </div>
+                <LegalFooter />
+              </form>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="w-full max-w-md mx-auto md:max-w-none flex flex-col bg-muted/30 border-primary/20">
+          <CardHeader>
+            <h2 className="text-xl font-bold leading-tight">
+              🎯 Revele Seu Círculo Narrativo nas 12 Áreas Estruturantes da Vida.
+            </h2>
+          </CardHeader>
+          <CardContent className="space-y-6 flex-1">
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">O que você vai fazer</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5" aria-hidden>
+                    ✓
+                  </span>
+                  Responder no mínimo 40 perguntas
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5" aria-hidden>
+                    ✓
+                  </span>
+                  Tempo estimado: 20-30 min
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5" aria-hidden>
+                    ✓
+                  </span>
+                  Possibilidade de pausar e voltar
+                </li>
+              </ul>
+            </section>
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">O que você vai receber</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5" aria-hidden>
+                    ✓
+                  </span>
+                  Diagnóstico Narrativo
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5" aria-hidden>
+                    ✓
+                  </span>
+                  PDF completo por e-mail
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5" aria-hidden>
+                    ✓
+                  </span>
+                  Acesso ao Dashboard com Gráfico Radar
+                </li>
+              </ul>
+            </section>
+          </CardContent>
+        </Card>
+      </div>
       <SharePopup
         open={sharePopupOpen}
         onClose={handleCloseSharePopup}

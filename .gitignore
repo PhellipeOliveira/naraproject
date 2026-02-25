@@ -43,8 +43,7 @@ htmlcov/
 .cache/
 
 # Conteúdo sensível (não publicar)
-docs/
-documentos/
-docs-rag/
-supabase/
-docs/
+/docs/
+/documentos/
+/docs-rag/
+/supabase/.temp/

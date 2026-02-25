@@ -52,6 +52,24 @@ export default function Diagnostic() {
     }
   }, [questions, currentQuestionIndex, answersByQuestionId]);
 
+  const getErrorDetailMessage = (error: unknown): string | null => {
+    const raw =
+      error && typeof error === "object" && "response" in error
+        ? (
+            error as {
+              response?: { data?: { detail?: string | string[] | { message?: string } | unknown } };
+            }
+          ).response?.data?.detail
+        : null;
+
+    if (typeof raw === "string") return raw;
+    if (Array.isArray(raw) && raw.length > 0) return String(raw[0]);
+    if (raw && typeof raw === "object" && "message" in raw) {
+      return String((raw as { message?: unknown }).message ?? "");
+    }
+    return null;
+  };
+
   const syncState = useCallback(
     async (diagId: string) => {
       try {
@@ -178,13 +196,8 @@ export default function Diagnostic() {
           if (import.meta.env.DEV) {
             console.error(e);
           }
-          const msg =
-            e && typeof e === "object" && "response" in e
-              ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
-              : null;
-          setSubmitError(
-            typeof msg === "string" ? msg : "Erro ao carregar próximas perguntas. Tente novamente."
-          );
+          const msg = getErrorDetailMessage(e);
+          setSubmitError(msg || "Erro ao carregar próximas perguntas. Tente novamente.");
         } finally {
           setGeneratingNextPhase(false);
         }
@@ -195,13 +208,8 @@ export default function Diagnostic() {
       if (import.meta.env.DEV) {
         console.error(e);
       }
-      const msg =
-        e && typeof e === "object" && "response" in e
-          ? (e as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : null;
-      setSubmitError(
-        typeof msg === "string" ? msg : "Erro ao salvar. Tente novamente."
-      );
+      const msg = getErrorDetailMessage(e);
+      setSubmitError(msg || "Erro ao salvar. Tente novamente.");
     } finally {
       setSubmitting(false);
     }
@@ -222,19 +230,8 @@ export default function Diagnostic() {
       if (import.meta.env.DEV) {
         console.error(e);
       }
-      const raw =
-        e && typeof e === "object" && "response" in e
-          ? (e as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
-          : null;
-      const msg =
-        typeof raw === "string"
-          ? raw
-          : raw && typeof raw === "object" && "message" in raw
-            ? String((raw as { message: string }).message)
-            : raw
-              ? JSON.stringify(raw)
-              : "Erro ao carregar próximas perguntas. Tente novamente.";
-      setSubmitError(msg);
+      const msg = getErrorDetailMessage(e);
+      setSubmitError(msg || "Erro ao carregar próximas perguntas. Tente novamente.");
     } finally {
       setGeneratingNextPhase(false);
     }
@@ -365,7 +362,7 @@ export default function Diagnostic() {
         current={currentQuestionIndex}
         total={questions.length}
         totalAnswers={totalAnswers}
-        overallPercent={progress?.overall}
+        phase={phase}
       />
 
       {/* Botão para salvar e sair */}
@@ -407,6 +404,7 @@ export default function Diagnostic() {
           canPrev={currentQuestionIndex > 0}
           isSubmitting={submitting}
           isLastQuestion={isLastAvailableQuestion}
+          isPhase1Required={phase === 1}
         />
       </div>
 

@@ -44,11 +44,15 @@
         "Propósito"
       ],
       "queries": [
-        "motores motivacionais necessidade valor desejo propósito",
-        "motor da dor alívio de falta interna",
+        "motores motivacionais",
         "motor da coerência integridade e valores",
         "motor da conquista metas tangíveis",
-        "motor do legado impacto contribuição"
+        "motor da dor alívio de falta interna",
+        "motor do legado impacto contribuição",
+        "motores motivacionais Desejo",
+        "motores motivacionais Necessidade",
+        "motores motivacionais Propósito",
+        "motores motivacionais Valor"
       ]
     },
     {
@@ -63,7 +67,13 @@
         "Realizar"
       ],
       "queries": [
-        "fases da jornada germinar enraizar desenvolver florescer frutificar realizar",
+        "fases da jornada",
+        "fases da jornada Desenvolver",
+        "fases da jornada Enraizar",
+        "fases da jornada Florescer",
+        "fases da jornada Frutificar",
+        "fases da jornada Germinar",
+        "fases da jornada Realizar",
         "reconhecer modelar assumir reforçar etapa da jornada"
       ]
     },
@@ -79,9 +89,20 @@
         "D6: O PAPEL DOS INDIVÍDUOS NUMA SOCIEDADE PRÓSPERA"
       ],
       "queries": [
-        "domínios temáticos D1 D2 D3 D4 D5 D6",
-        "motivações conflitos crenças valores princípios evolução desenvolvimento pessoal",
-        "congruência identidade cultura transformação de identidade personagens papel sociedade próspera"
+        "domínios temáticos",
+        "congruência identidade transformação de identidade papel sociedade próspera",
+        "domínios temáticos D2: CRENÇAS, VALORES E PRINCÍPIOS",
+        "domínios temáticos D3: EVOLUÇÃO E DESENVOLVIMENTO PESSOAL",
+        "motivações conflitos crenças valores princípios evolução desenvolvimento",
+        "congruência identidade transformação de identidade papel sociedade próspera D4: CONGRUÊNCIA ENTRE IDENTIDADE E CULTURA",
+        "congruência identidade transformação de identidade papel sociedade próspera D5: TRANSFORMAÇÃO DE IDENTIDADE E PERSONAGENS",
+        "congruência identidade transformação de identidade papel sociedade próspera D6: O PAPEL DOS INDIVÍDUOS NUMA SOCIEDADE PRÓSPERA",
+        "domínios temáticos D1: MOTIVAÇÕES E CONFLITOS NAS VIDAS DOS INDIVÍDUOS",
+        "domínios temáticos D4: CONGRUÊNCIA ENTRE IDENTIDADE E CULTURA",
+        "domínios temáticos D5: TRANSFORMAÇÃO DE IDENTIDADE E PERSONAGENS",
+        "domínios temáticos D6: O PAPEL DOS INDIVÍDUOS NUMA SOCIEDADE PRÓSPERA",
+        "motivações conflitos crenças valores princípios evolução desenvolvimento D2: CRENÇAS, VALORES E PRINCÍPIOS",
+        "motivações conflitos crenças valores princípios evolução desenvolvimento D3: EVOLUÇÃO E DESENVOLVIMENTO PESSOAL"
       ]
     },
     {
@@ -94,11 +115,15 @@
         "Existencial"
       ],
       "queries": [
-        "pontos de entrada emocional simbólico comportamental existencial",
-        "porta emocional validar regular emoção",
-        "porta simbólica ressignificar valores",
+        "pontos de entrada",
+        "pontos de entrada Comportamental",
+        "pontos de entrada Emocional",
+        "pontos de entrada Existencial",
+        "pontos de entrada Simbólico",
         "porta comportamental micro hábitos protocolo concreto",
-        "porta existencial missão legado propósito"
+        "porta emocional validar regular emoção",
+        "porta existencial missão legado propósito",
+        "porta simbólica ressignificar valores"
       ]
     },
     {
@@ -114,10 +139,14 @@
         "Incongruência Simbólica"
       ],
       "queries": [
-        "M1 MX M2X gap MX círculo narrativo CN+",
+        "capital simbólico pontos de prova FCU volição",
+        "gap círculo narrativo",
+        "gap círculo narrativo CN+",
+        "gap círculo narrativo M1",
+        "gap círculo narrativo M2X",
+        "gap círculo narrativo MX",
         "incongruência simbólica narrativa identidade hábitos",
-        "memórias vermelhas identidades herdadas",
-        "capital simbólico pontos de prova FCU volição"
+        "memórias vermelhas identidades herdadas"
       ]
     },
     {
@@ -183,12 +212,30 @@
         "Testemunhas"
       ],
       "queries": [
-        "âncoras práticas assunção intencional camadas de ação concreta",
-        "âncoras de ambiente referências objetos ambientes grupo",
-        "âncoras de comunicação tom vocabulário postura vestimenta",
-        "âncoras de rotina rituais matinais noturnos limites marcos",
-        "âncoras de emoção gestão de energia práticas de recarga",
-        "âncoras de ação tarefas identitárias microentregas exposição gradual testemunhas"
+        "âncoras de ação",
+        "âncoras de ação Exposição Gradual",
+        "âncoras de ação Microentregas",
+        "âncoras de ação Tarefas Identitárias",
+        "âncoras de ação Testemunhas",
+        "âncoras de ambiente",
+        "âncoras de ambiente Ambientes",
+        "âncoras de ambiente Grupo",
+        "âncoras de ambiente Objetos",
+        "âncoras de ambiente Referências",
+        "âncoras de comunicação",
+        "âncoras de comunicação Postura",
+        "âncoras de comunicação Tom",
+        "âncoras de comunicação Vestimenta",
+        "âncoras de comunicação Vocabulário",
+        "âncoras de emoção",
+        "âncoras de emoção Gestão de Energia",
+        "âncoras de emoção Práticas de Recarga",
+        "âncoras de rotina",
+        "âncoras de rotina Limites",
+        "âncoras de rotina Marcos",
+        "âncoras de rotina Rituais Matinais",
+        "âncoras de rotina Rituais Noturnos",
+        "âncoras práticas assunção intencional camadas de ação concreta"
       ]
     },
     {

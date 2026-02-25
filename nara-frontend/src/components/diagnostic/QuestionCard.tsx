@@ -15,6 +15,7 @@ interface QuestionCardProps {
   canPrev: boolean;
   isSubmitting: boolean;
   isLastQuestion: boolean;
+  isPhase1Required?: boolean;
 }
 
 export function QuestionCard({
@@ -27,6 +28,7 @@ export function QuestionCard({
   canPrev,
   isSubmitting,
   isLastQuestion,
+  isPhase1Required = false,
 }: QuestionCardProps) {
   const wordCount = answerText.trim().split(/\s+/).filter(Boolean).length;
   const canSave = wordCount >= MIN_WORDS;
@@ -84,7 +86,7 @@ export function QuestionCard({
             Anterior
           </Button>
           <div className="flex gap-2">
-            {!isLastQuestion && (
+            {!isLastQuestion && !isPhase1Required && (
               <Button
                 type="button"
                 variant="outline"

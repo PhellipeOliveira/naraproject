@@ -1,42 +1,48 @@
 import { Progress } from "../ui/progress";
 
-/** Meta de perguntas no total (doc: até 60). Usado para exibir "X de 60". */
-const TOTAL_QUESTIONS_REF = 60;
+const GLOBAL_TARGET_ANSWERS = 40;
 
 interface ProgressBarProps {
-  /** Índice da pergunta atual na fase (0-based). */
   current: number;
-  /** Total de perguntas nesta fase. */
   total: number;
-  /** Total de respostas já enviadas (todas as fases). */
   totalAnswers?: number;
-  /** Percentual geral 0–100 (vindo da API). */
-  overallPercent?: number;
+  phase?: number;
 }
+
+const PHASE_LABELS: Record<number, string> = {
+  1: "primeira",
+  2: "segunda",
+  3: "terceira",
+  4: "quarta",
+};
 
 export function ProgressBar({
   current,
   total,
   totalAnswers = 0,
-  overallPercent,
+  phase = 1,
 }: ProgressBarProps) {
-  const currentQuestionNumber = totalAnswers + 1;
-  const displayPercent = overallPercent ?? (total > 0 ? ((current + 1) / total) * 100 : 0);
+  const phasePercent = total > 0 ? Math.round(((current + 1) / total) * 100) : 0;
+  const globalPercent = Math.min(100, Math.round((totalAnswers / GLOBAL_TARGET_ANSWERS) * 100));
+  const phaseLabel = PHASE_LABELS[phase] ?? `fase ${phase}`;
 
   return (
-    <div className="w-full space-y-1">
-      <div className="flex justify-between text-sm text-muted-foreground">
-        <span>
-          Pergunta {currentQuestionNumber} de {TOTAL_QUESTIONS_REF}
-          {total > 0 && (
-            <span className="ml-1 text-muted-foreground/80">
-              · {current + 1}/{total} nesta fase
-            </span>
-          )}
-        </span>
-        <span>{Math.round(displayPercent)}% concluído</span>
+    <div className="w-full space-y-4">
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>
+            {phasePercent}% da {phaseLabel} fase
+          </span>
+        </div>
+        <Progress value={Math.min(100, phasePercent)} className="h-2" />
       </div>
-      <Progress value={Math.min(100, displayPercent)} className="h-2" />
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>{totalAnswers} perguntas respondidas</span>
+          <span>100% ao atingir {GLOBAL_TARGET_ANSWERS} respostas</span>
+        </div>
+        <Progress value={globalPercent} className="h-2" />
+      </div>
     </div>
   );
 }
