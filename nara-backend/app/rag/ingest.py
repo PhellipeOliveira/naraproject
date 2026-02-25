@@ -16,6 +16,8 @@ from typing import Any, Literal, Optional
 
 from app.core.constants import AREAS
 from app.config import settings
+from app.database import supabase
+from app.rag.embeddings import generate_embeddings_batch
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
@@ -168,6 +170,8 @@ def chunk_markdown(
     content: str,
     source_path: str,
     *,
+    source: Optional[str] = None,
+    ingest_source: str = "docs_rag",
     max_chars: int = CHUNK_MAX_CHARS,
     overlap: int = CHUNK_OVERLAP_CHARS,
     infer_chapter: bool = True,
@@ -189,6 +193,7 @@ def chunk_markdown(
     chunks_out: list[dict[str, Any]] = []
     parts = _split_by_headers(content)
     source_name = Path(source_path).name
+    source_ref = source or source_name
 
     for section_title, segment in parts:
         if not segment.strip():
@@ -206,9 +211,9 @@ def chunk_markdown(
             section = section_title if len(sub_chunks) == 1 else f"{section_title} (parte {i + 1})"
             metadata: dict[str, Any] = {
                 "source_file": source_name,
-                "source_path": source_path,
+                "source": source_ref,
                 "section": section,
-                "ingest_source": "docs_rag",
+                "ingest_source": ingest_source,
                 "chunk_strategy": "size",
             }
             chunks_out.append({
@@ -217,6 +222,7 @@ def chunk_markdown(
                 "section": section,
                 "metadata": metadata,
                 "source_file": source_name,
+                "source": source_ref,
             })
     return chunks_out
 
@@ -225,6 +231,8 @@ def chunk_markdown_semantic(
     content: str,
     source_path: str,
     *,
+    source: Optional[str] = None,
+    ingest_source: str = "docs_rag",
     max_chars: int = CHUNK_MAX_CHARS,
     infer_chapter: bool = True,
 ) -> list[dict[str, Any]]:
@@ -235,6 +243,7 @@ def chunk_markdown_semantic(
     chunks_out: list[dict[str, Any]] = []
     parts = _split_by_headers(content)
     source_name = Path(source_path).name
+    source_ref = source or source_name
 
     for section_title, segment in parts:
         if not segment.strip():
@@ -250,9 +259,9 @@ def chunk_markdown_semantic(
             section = section_title if len(sub_chunks) == 1 else f"{section_title} (parte {i + 1})"
             metadata: dict[str, Any] = {
                 "source_file": source_name,
-                "source_path": source_path,
+                "source": source_ref,
                 "section": section,
-                "ingest_source": "docs_rag",
+                "ingest_source": ingest_source,
                 "chunk_strategy": "semantic",
             }
             chunks_out.append({
@@ -261,6 +270,7 @@ def chunk_markdown_semantic(
                 "section": section,
                 "metadata": metadata,
                 "source_file": source_name,
+                "source": source_ref,
             })
     return chunks_out
 
@@ -308,17 +318,35 @@ def build_chunks_from_docs(
     """
     all_chunks: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
+    repo_root = docs_dir.resolve().parent
+
+    def _to_source(path_str: str) -> str:
+        path = Path(path_str).resolve()
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return path.name
 
     def process(content: str, path_str: str, ingest_source: str = "docs_rag") -> None:
+        source = _to_source(path_str)
         if strategy in ("size", "both"):
-            for c in chunk_markdown(content, path_str, max_chars=max_chars, overlap=overlap):
-                if ingest_source != "docs_rag":
-                    c["metadata"] = {**c.get("metadata", {}), "ingest_source": ingest_source}
+            for c in chunk_markdown(
+                content,
+                path_str,
+                source=source,
+                ingest_source=ingest_source,
+                max_chars=max_chars,
+                overlap=overlap,
+            ):
                 all_chunks.append(c)
         if strategy in ("semantic", "both"):
-            for c in chunk_markdown_semantic(content, path_str, max_chars=max_chars):
-                if ingest_source != "docs_rag":
-                    c["metadata"] = {**c.get("metadata", {}), "ingest_source": ingest_source}
+            for c in chunk_markdown_semantic(
+                content,
+                path_str,
+                source=source,
+                ingest_source=ingest_source,
+                max_chars=max_chars,
+            ):
                 all_chunks.append(c)
 
     files_from_dir = load_docs_from_directory(docs_dir)
@@ -355,21 +383,14 @@ def build_chunks_from_docs(
 def chunks_to_knowledge_rows(
     chunks: list[dict[str, Any]],
     embeddings: list[list[float]],
-    *,
-    source_version: str = "docs_rag",
 ) -> list[dict[str, Any]]:
     """
     Converte lista de chunks + embeddings em linhas para insert em knowledge_chunks.
-
-    A versão ativa é lida de settings.RAG_CHUNK_VERSION (centralizado em config.py).
     """
-    from app.config import settings
-
     rows: list[dict[str, Any]] = []
     for i, ch in enumerate(chunks):
         emb = embeddings[i] if i < len(embeddings) else None
         meta = ch.get("metadata") or {}
-        meta["source_version"] = source_version
         motor_motivacional = meta.get("motor_motivacional")
         estagio_jornada = meta.get("estagio_jornada")
         tipo_crise = meta.get("tipo_crise")
@@ -381,6 +402,7 @@ def chunks_to_knowledge_rows(
         tipo_conteudo = meta.get("tipo_conteudo")
         dominio = meta.get("dominio")
         row = {
+            "source": ch.get("source"),
             "chapter": ch.get("chapter", "Metodologia"),
             "section": ch.get("section"),
             "content": ch["content"],
@@ -397,10 +419,87 @@ def chunks_to_knowledge_rows(
             "tipo_conteudo": tipo_conteudo,
             "dominio": dominio,
             "is_active": True,
-            "version": settings.RAG_CHUNK_VERSION,
         }
         rows.append(row)
     return rows
+
+
+def upsert_chunks_for_source(
+    source: str,
+    rows: list[dict[str, Any]],
+    *,
+    batch_size: int = 30,
+) -> int:
+    """
+    Replace all chunks for a given source.
+
+    Deletes existing chunks for the source and then inserts the provided rows.
+    """
+    supabase.table("knowledge_chunks").delete().eq("source", source).execute()
+    if not rows:
+        return 0
+
+    normalized_rows = [{**row, "source": row.get("source") or source} for row in rows]
+
+    inserted_total = 0
+    for start in range(0, len(normalized_rows), batch_size):
+        batch = normalized_rows[start : start + batch_size]
+        result = supabase.table("knowledge_chunks").insert(batch).execute()
+        inserted_total += len(result.data or [])
+    return inserted_total
+
+
+async def ingest_single_file(
+    file_path: Path,
+    repo_root: Path,
+    *,
+    strategy: ChunkStrategy = "semantic",
+    enrich_metadata: bool = True,
+    max_chars: int = CHUNK_MAX_CHARS,
+    overlap: int = CHUNK_OVERLAP_CHARS,
+) -> int:
+    """
+    Ingest one markdown file end-to-end and upsert by canonical source.
+    """
+    if not file_path.is_file():
+        raise FileNotFoundError(f"Arquivo nao encontrado: {file_path}")
+
+    content = file_path.read_text(encoding="utf-8", errors="replace")
+    source = str(file_path.resolve().relative_to(repo_root.resolve()))
+    ingest_source = "docs_rag" if source.startswith("docs-rag/") else "documentos"
+
+    chunks: list[dict[str, Any]] = []
+    if strategy in ("size", "both"):
+        chunks.extend(
+            chunk_markdown(
+                content,
+                str(file_path),
+                source=source,
+                ingest_source=ingest_source,
+                max_chars=max_chars,
+                overlap=overlap,
+            )
+        )
+    if strategy in ("semantic", "both"):
+        chunks.extend(
+            chunk_markdown_semantic(
+                content,
+                str(file_path),
+                source=source,
+                ingest_source=ingest_source,
+                max_chars=max_chars,
+            )
+        )
+
+    if not chunks:
+        return upsert_chunks_for_source(source, [])
+
+    if enrich_metadata:
+        chunks = await enrich_chunks_metadata_with_llm(chunks)
+
+    embeddings = await generate_embeddings_batch([c["content"] for c in chunks])
+    rows = chunks_to_knowledge_rows(chunks, embeddings)
+    return upsert_chunks_for_source(source, rows)
 
 
 def _safe_list(values: Any, valid_options: list[str]) -> list[str]:

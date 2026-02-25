@@ -170,7 +170,7 @@ def _build_analysis_prompt(response_texts: str, rag_context: str) -> str:
     )
     dominios_desc = "\n".join(
         [
-            f"- **{codigo} ({dados['nome']})** → fase {dados['fase_potencia_maxima']}: {dados['pergunta_chave']}"
+            f"- **{codigo} ({dados['nome']})**: {dados['pergunta_chave']} (maior potência quando a pessoa está na fase {dados['fase_potencia_maxima']})"
             for codigo, dados in DOMINIOS_TEMATICOS_COMPLETOS.items()
         ]
     )
@@ -220,6 +220,7 @@ Analise as respostas e classifique sob a ótica da Engenharia de Mindset:
 - Hábitos comprometidos: reconhece o que quer mas não age, paralisia e autossabotagem
 
 ### DOMÍNIOS TEMÁTICOS — use o domínio de maior potência para a fase identificada:
+Fase da Jornada e Domínio Temático são conceitos distintos: fase indica onde a pessoa está; domínio define a lente de intervenção.
 {dominios_desc}
 
 ### ASSUNÇÃO INTENCIONAL (para prescrever reforços):
