@@ -151,11 +151,13 @@ export interface DiagnosticCurrentStateResponse {
   status: string;
   current_phase: number;
   current_question: number;
+  current_phase_questions_count?: number;
   total_answers: number;
   total_words: number;
   areas_covered: string[];
   questions: Question[];
   answers_prefill?: Record<string, string>;
+  valid_answers_in_current_phase?: number;
   can_finish: boolean;
   progress: ProgressInfo;
 }

@@ -3,7 +3,7 @@ import logging
 from io import BytesIO
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import EmailStr
+from pydantic import EmailStr, ValidationError
 
 from app.models.diagnostic import (
     AnswerSubmitRequest,
@@ -234,7 +234,14 @@ async def get_result_by_token(request: Request, token: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Resultado não encontrado ou token inválido.",
         )
-    return DiagnosticResultResponse(**result)
+    try:
+        return DiagnosticResultResponse(**result)
+    except ValidationError:
+        logger.exception("Falha ao validar resultado por token: %s", token)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Resultado indisponível no momento. Tente novamente em instantes.",
+        )
 
 
 @router.get("/result/{token}/owner-email", response_model=DiagnosticOwnerEmailResponse)

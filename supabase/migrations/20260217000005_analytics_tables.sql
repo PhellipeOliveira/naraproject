@@ -211,7 +211,7 @@ SELECT
 FROM public.diagnostic_results
 WHERE vetor_estado IS NOT NULL 
   AND vetor_estado->>'crise_raiz' IS NOT NULL
-GROUP BY crise_raiz
+GROUP BY vetor_estado->>'crise_raiz'
 ORDER BY count DESC;
 
 COMMENT ON VIEW public.analytics_crises_distribution IS 'Distribuição geral de crises raiz';

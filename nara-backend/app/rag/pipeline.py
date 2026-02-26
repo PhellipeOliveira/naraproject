@@ -465,8 +465,9 @@ class NaraDiagnosticPipeline:
         )
         answers = answers_result.data or []
 
-        # Trava de progressão: fases 2, 3 e 4 exigem no mínimo 10 respostas na fase atual
+        # Trava de progressão: fases 2, 3 e 4 exigem no mínimo 10 respostas válidas na fase atual.
         MIN_ANSWERS_TO_UNLOCK_NEXT_PHASE = 10
+        MIN_VALID_WORDS_PER_ANSWER = 10
         if current >= 2:
             phase_questions_count_raw = diagnostic.get("current_phase_questions_count")
             phase_questions_count = (
@@ -476,7 +477,12 @@ class NaraDiagnosticPipeline:
                 else settings.QUESTIONS_PER_PHASE
             )
             required_in_phase = min(MIN_ANSWERS_TO_UNLOCK_NEXT_PHASE, phase_questions_count)
-            count_in_phase = sum(1 for a in answers if a.get("question_phase") == current)
+            count_in_phase = sum(
+                1
+                for a in answers
+                if a.get("question_phase") == current
+                and int(a.get("word_count") or 0) >= MIN_VALID_WORDS_PER_ANSWER
+            )
             if count_in_phase < required_in_phase:
                 raise ValueError(
                     f"Por favor, volte e responda no mínimo {required_in_phase} questões desta fase para prosseguir."
@@ -495,7 +501,12 @@ class NaraDiagnosticPipeline:
         # Análise contextual para enriquecer geração de perguntas
         logger.info("Analisando contexto das respostas para próxima fase")
         context_analysis = await analyze_answers_context(answers, user_profile=None)
-        
+        investigation_context = self._build_investigation_context(
+            context_analysis=context_analysis,
+            answers=answers,
+            current_phase=current,
+        )
+
         patterns = self._identify_patterns(answers)
         # Enriquecer com insights do analyzer
         if context_analysis.get("motor_dominante"):
@@ -543,7 +554,23 @@ class NaraDiagnosticPipeline:
                 if isinstance(question, dict) and question.get("text"):
                     template_questions_raw.append(question)
 
-        dedup_texts: set[str] = set()
+        def _normalize_question_text(value: Any) -> str:
+            return str(value or "").strip().lower()
+
+        used_question_texts = {
+            _normalize_question_text(a.get("question_text"))
+            for a in answers
+            if _normalize_question_text(a.get("question_text"))
+        }
+        persisted_phase_questions = diagnostic.get("current_phase_questions") or []
+        if isinstance(persisted_phase_questions, list):
+            used_question_texts.update(
+                _normalize_question_text(q.get("text"))
+                for q in persisted_phase_questions
+                if isinstance(q, dict) and _normalize_question_text(q.get("text"))
+            )
+
+        dedup_texts: set[str] = set(used_question_texts)
         template_questions: List[Dict[str, Any]] = []
         for question in template_questions_raw:
             normalized_text = str(question.get("text", "")).strip().lower()
@@ -567,6 +594,7 @@ class NaraDiagnosticPipeline:
                 underrepresented_areas=underrepresented,
                 identified_patterns=patterns,
                 rag_context=rag_context,
+                investigation_context=investigation_context,
                 phase=next_phase,
                 adaptive_templates=[],
                 max_questions=llm_question_count,
@@ -584,7 +612,7 @@ class NaraDiagnosticPipeline:
                         "follow_up_hint": q.get("follow_up_hint", ""),
                     })
         combined_questions = template_questions + llm_questions
-        QUESTIONS_PER_PHASE_FIXED = 15
+        QUESTIONS_PER_PHASE_FIXED = settings.QUESTIONS_PER_PHASE
         while len(combined_questions) < QUESTIONS_PER_PHASE_FIXED:
             need = QUESTIONS_PER_PHASE_FIXED - len(combined_questions)
             extra = await generate_adaptive_questions(
@@ -592,6 +620,7 @@ class NaraDiagnosticPipeline:
                 underrepresented_areas=underrepresented,
                 identified_patterns=patterns,
                 rag_context=rag_context,
+                investigation_context=investigation_context,
                 phase=next_phase,
                 adaptive_templates=[],
                 max_questions=need,
@@ -729,6 +758,93 @@ class NaraDiagnosticPipeline:
             except (ValueError, TypeError):
                 return {}
         return {}
+
+    def _build_investigation_context(
+        self,
+        context_analysis: Dict[str, Any],
+        answers: List[Dict[str, Any]],
+        current_phase: int,
+    ) -> str:
+        """
+        Monta um contexto estruturado por fase + análise acumulada para o gerador.
+        Esse bloco é enviado ao prompt da LLM para orientar aprofundamento progressivo.
+        """
+        phase_labels = {
+            1: "Baseline - Mapeamento inicial",
+            2: "Investigação de conflitos",
+            3: "Aprofundamento de crenças e identidade",
+            4: "Transformação e plano prático",
+        }
+
+        def _truncate(text: Any, limit: int = 220) -> str:
+            normalized = " ".join(str(text or "").split()).strip()
+            if len(normalized) <= limit:
+                return normalized
+            return f"{normalized[:limit - 3]}..."
+
+        def _fmt_list(value: Any, max_items: int = 6) -> str:
+            if not value:
+                return "não identificado"
+            if isinstance(value, list):
+                items = [str(v).strip() for v in value if str(v).strip()]
+                if not items:
+                    return "não identificado"
+                return ", ".join(items[:max_items])
+            return str(value)
+
+        answers_by_phase: Dict[int, List[Dict[str, Any]]] = {}
+        for answer in answers:
+            raw_phase = answer.get("question_phase", 1)
+            phase_num = (
+                int(raw_phase)
+                if isinstance(raw_phase, (int, float, str)) and str(raw_phase).isdigit()
+                else 1
+            )
+            answers_by_phase.setdefault(phase_num, []).append(answer)
+
+        lines: List[str] = []
+        lines.append("## HISTÓRICO POR FASE")
+        lines.append(f"- Fase atual em conclusão: {current_phase}")
+        lines.append(f"- Próxima fase alvo: {current_phase + 1}")
+
+        for phase_num in sorted(answers_by_phase.keys()):
+            phase_answers = answers_by_phase[phase_num]
+            phase_title = phase_labels.get(phase_num, f"Fase {phase_num}")
+            lines.append(f"\n### Fase {phase_num} ({phase_title})")
+
+            if not phase_answers:
+                lines.append("- Sem respostas registradas nesta fase.")
+                continue
+
+            for answer in phase_answers:
+                area = answer.get("question_area", "Geral")
+                question = _truncate(answer.get("question_text", ""), 120)
+                answer_value = self._safe_answer_value(answer)
+                text_answer = _truncate(answer_value.get("text", ""), 220)
+                scale_answer = answer_value.get("scale")
+                if text_answer:
+                    rendered_answer = text_answer
+                elif scale_answer is not None:
+                    rendered_answer = f"Nota {scale_answer}/5"
+                else:
+                    rendered_answer = "Sem conteúdo textual."
+                lines.append(f"- {area} | Q: {question} | R: {rendered_answer}")
+
+        lines.append("\n## ANÁLISE ACUMULADA")
+        lines.append(f"- Motor dominante: {_fmt_list(context_analysis.get('motor_dominante'))}")
+        lines.append(f"- Clusters de crise: {_fmt_list(context_analysis.get('clusters_identificados'))}")
+        lines.append(f"- Tom emocional: {_fmt_list(context_analysis.get('tom_emocional'))}")
+        lines.append(f"- Áreas críticas: {_fmt_list(context_analysis.get('areas_criticas'))}")
+        lines.append(f"- Sinais de conflito: {_fmt_list(context_analysis.get('sinais_conflito'))}")
+        lines.append(f"- Fase da jornada: {_fmt_list(context_analysis.get('fase_jornada'))}")
+        lines.append(f"- Domínios alavanca: {_fmt_list(context_analysis.get('dominios_alavanca'))}")
+        lines.append(f"- Eixo mais comprometido: {_fmt_list(context_analysis.get('eixo_mais_comprometido'))}")
+        lines.append(f"- Nível de maturidade: {_fmt_list(context_analysis.get('nivel_maturidade'))}")
+        lines.append(f"- Memórias vermelhas: {_fmt_list(context_analysis.get('memorias_vermelhas'))}")
+        lines.append(f"- Barreiras identificadas: {_fmt_list(context_analysis.get('barreiras_identificadas'))}")
+        lines.append(f"- Gap MX: {_fmt_list(context_analysis.get('gap_mx'))}")
+
+        return "\n".join(lines)
 
     async def _calculate_area_scores(self, diagnostic_id: str) -> Dict[str, Any]:
         """Calcula scores por área baseado nas respostas."""

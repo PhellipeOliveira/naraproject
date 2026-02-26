@@ -36,6 +36,10 @@ export default function StartDiagnostic() {
   const [startError, setStartError] = useState<string | null>(null);
   const [isAbandoning, setIsAbandoning] = useState(false);
   const [sharePopupOpen, setSharePopupOpen] = useState(false);
+  const [checkExistingFeedback, setCheckExistingFeedback] = useState<{
+    type: "info" | "error";
+    message: string;
+  } | null>(null);
 
   const {
     register,
@@ -70,21 +74,34 @@ export default function StartDiagnostic() {
 
   const onCheckExisting = async () => {
     if (!email) return;
+    setCheckExistingFeedback(null);
+    setStartError(null);
     setIsChecking(true);
     try {
       const data = await checkExistingDiagnostic((email as string).trim().toLowerCase());
-      setExistingDiagnostic(
-        data.exists
-          ? {
-              exists: true,
-              diagnostic_id: data.diagnostic_id,
-              total_answers: data.total_answers,
-              started_at: data.started_at,
-            }
-          : { exists: false }
-      );
-    } catch {
+      if (data.exists) {
+        setExistingDiagnostic({
+          exists: true,
+          diagnostic_id: data.diagnostic_id,
+          total_answers: data.total_answers,
+          started_at: data.started_at,
+        });
+        return;
+      }
       setExistingDiagnostic({ exists: false });
+      setCheckExistingFeedback({
+        type: "info",
+        message: "Nenhum diagnóstico em andamento foi encontrado para este e-mail.",
+      });
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error(err);
+      }
+      setExistingDiagnostic(null);
+      setCheckExistingFeedback({
+        type: "error",
+        message: "Não foi possível verificar seu diagnóstico agora. Tente novamente em instantes.",
+      });
     } finally {
       setIsChecking(false);
     }
@@ -92,6 +109,7 @@ export default function StartDiagnostic() {
 
   const onSubmit = async (data: FormData) => {
     setStartError(null);
+    setCheckExistingFeedback(null);
     const emailNorm = (data.email || "").trim().toLowerCase();
     try {
       const existing = await checkExistingDiagnostic(emailNorm);
@@ -268,6 +286,17 @@ export default function StartDiagnostic() {
                 {startError && (
                   <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">
                     {startError}
+                  </p>
+                )}
+                {checkExistingFeedback && (
+                  <p
+                    className={`text-sm p-3 rounded ${
+                      checkExistingFeedback.type === "error"
+                        ? "text-destructive bg-destructive/10"
+                        : "text-muted-foreground bg-muted"
+                    }`}
+                  >
+                    {checkExistingFeedback.message}
                   </p>
                 )}
                 <div className="flex gap-2">
