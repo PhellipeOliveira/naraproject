@@ -128,10 +128,34 @@ class DiagnosticService:
         """Garante que overall_score seja numérico (Pydantic espera float); evita 500 se veio string do LLM."""
         if not data:
             return data
-        raw = data.get("overall_score")
+        if not isinstance(data, dict):
+            return None
+
+        sanitized = dict(data)
+        raw = sanitized.get("overall_score")
         if raw is not None and not isinstance(raw, (int, float)):
-            data = {**data, "overall_score": 5.0}
-        return data
+            sanitized["overall_score"] = 5.0
+
+        # Compatibilidade com versões de relatório em que area_analysis não inclui score.
+        areas = sanitized.get("area_analysis")
+        if isinstance(areas, list):
+            normalized_areas = []
+            for area in areas:
+                if not isinstance(area, dict):
+                    continue
+                area_item = dict(area)
+                score_raw = area_item.get("score")
+                if isinstance(score_raw, (int, float)):
+                    area_item["score"] = float(score_raw)
+                else:
+                    try:
+                        area_item["score"] = float(score_raw)  # type: ignore[arg-type]
+                    except (TypeError, ValueError):
+                        area_item["score"] = 0.0
+                normalized_areas.append(area_item)
+            sanitized["area_analysis"] = normalized_areas
+
+        return sanitized
 
     async def get_result(self, diagnostic_id: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado de um diagnóstico finalizado."""
@@ -325,12 +349,13 @@ class DiagnosticService:
         # Respostas já salvas (question_id -> texto) para preencher ao clicar "Anterior" ao retomar
         answers_result = (
             supabase.table("answers")
-            .select("question_id, answer_value")
+            .select("question_id, answer_value, question_phase, word_count")
             .eq("diagnostic_id", diagnostic_id)
             .order("answered_at")
             .execute()
         )
         answers_prefill: Dict[str, str] = {}
+        valid_answers_in_current_phase = 0
         for row in (answers_result.data or []):
             qid = row.get("question_id")
             if qid is not None:
@@ -342,6 +367,8 @@ class DiagnosticService:
                         val = {}
                 text = (val.get("text") or "").strip()
                 answers_prefill[str(qid)] = text
+            if row.get("question_phase") == phase and int(row.get("word_count") or 0) >= 10:
+                valid_answers_in_current_phase += 1
 
         return {
             "diagnostic_id": diagnostic_id,
@@ -350,11 +377,15 @@ class DiagnosticService:
             "status": diagnostic["status"],
             "current_phase": phase,
             "current_question": current_q,
+            "current_phase_questions_count": int(
+                diagnostic.get("current_phase_questions_count") or len(questions) or 1
+            ),
             "total_answers": total_answers,
             "total_words": total_words,
             "areas_covered": areas_covered,
             "questions": questions,
             "answers_prefill": answers_prefill,
+            "valid_answers_in_current_phase": valid_answers_in_current_phase,
             "can_finish": eligibility["can_finish"],
             "progress": {
                 "overall": min(100, eligibility["overall_progress"]),

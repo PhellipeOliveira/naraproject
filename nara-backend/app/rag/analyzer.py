@@ -72,12 +72,13 @@ async def analyze_answers_context(
     if not responses:
         return _empty_analysis()
     
-    # Concatenar respostas para análise
+    # Concatenar respostas para análise (janela ampliada para capturar contexto acumulado).
+    analysis_window = 40
     response_texts = "\n\n".join([
         f"Área: {r.get('question_area', 'Geral')}\n"
         f"Pergunta: {r.get('question_text', '')}\n"
         f"Resposta: {r.get('answer_value', {}).get('text', '')}"
-        for r in responses[-20:]  # Últimas 20 respostas
+        for r in responses[-analysis_window:]  # Últimas 40 respostas
         if r.get('answer_value', {}).get('text')
     ])
     

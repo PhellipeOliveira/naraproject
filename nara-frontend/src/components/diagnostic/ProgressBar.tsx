@@ -39,7 +39,7 @@ export function ProgressBar({
       <div className="space-y-1.5">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>{totalAnswers} perguntas respondidas</span>
-          <span>100% ao atingir {GLOBAL_TARGET_ANSWERS} respostas</span>
+          <span>{globalPercent}% do total</span>
         </div>
         <Progress value={globalPercent} className="h-2" />
       </div>

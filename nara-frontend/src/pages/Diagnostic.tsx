@@ -25,6 +25,8 @@ export default function Diagnostic() {
   /** Respostas já dadas nesta sessão (por question_id), para restaurar ao clicar "Anterior". */
   const [answersByQuestionId, setAnswersByQuestionId] = useState<Record<number, string>>({});
   const [userEmail, setUserEmail] = useState<string>("");
+  const [validAnswersInCurrentPhase, setValidAnswersInCurrentPhase] = useState(0);
+  const [currentPhaseQuestionsCount, setCurrentPhaseQuestionsCount] = useState(15);
 
   const {
     diagnosticId,
@@ -43,6 +45,19 @@ export default function Diagnostic() {
   } = useDiagnosticStore();
 
   const currentQuestion = questions[currentQuestionIndex];
+  const MIN_VALID_WORDS = 10;
+  const requiredAnswersInCurrentPhase = Math.min(10, Math.max(1, currentPhaseQuestionsCount));
+  const canGenerateNextPhase = validAnswersInCurrentPhase >= requiredAnswersInCurrentPhase;
+  const missingAnswersForNextPhase = Math.max(
+    0,
+    requiredAnswersInCurrentPhase - validAnswersInCurrentPhase
+  );
+
+  const countWords = (text: string): number =>
+    text
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
 
   // Restaurar o texto da pergunta atual ao navegar (Anterior/Próximo), para o usuário poder editar.
   useEffect(() => {
@@ -80,7 +95,7 @@ export default function Diagnostic() {
           setUserEmail(state.email);
         }
         
-        if (state.result_token && useDiagnosticStore.getState().diagnosticId !== diagId) {
+        if (state.result_token) {
           useDiagnosticStore.setState({
             diagnosticId: diagId,
             resultToken: state.result_token,
@@ -99,6 +114,9 @@ export default function Diagnostic() {
             }))
           );
         }
+        setCurrentPhaseQuestionsCount(
+          Math.max(1, state.current_phase_questions_count ?? state.questions?.length ?? 1)
+        );
         setProgress({
           totalAnswers: state.total_answers,
           totalWords: state.total_words,
@@ -111,6 +129,7 @@ export default function Diagnostic() {
             coverage: 0,
           },
         });
+        setValidAnswersInCurrentPhase(Math.max(0, state.valid_answers_in_current_phase ?? 0));
         // Preencher respostas já salvas para restaurar ao clicar "Anterior" (ex.: após retomar pelo link do email)
         const prefill = state.answers_prefill as Record<string, string> | undefined;
         if (prefill && typeof prefill === "object") {
@@ -174,6 +193,14 @@ export default function Diagnostic() {
         ...prev,
         [currentQuestion.id]: localAnswerText,
       }));
+      if (phase >= 2) {
+        const previousWords = countWords(answersByQuestionId[currentQuestion.id] ?? "");
+        const currentWords = countWords(localAnswerText);
+        const delta = Number(currentWords >= MIN_VALID_WORDS) - Number(previousWords >= MIN_VALID_WORDS);
+        if (delta !== 0) {
+          setValidAnswersInCurrentPhase((prev) => Math.max(0, prev + delta));
+        }
+      }
       setLocalAnswerText("");
 
       if (res.phase_complete && res.status !== "eligible") {
@@ -187,6 +214,8 @@ export default function Diagnostic() {
               questions: next.questions,
               currentQuestionIndex: 0,
             });
+            setCurrentPhaseQuestionsCount(Math.max(1, next.total_questions ?? next.questions.length));
+            setValidAnswersInCurrentPhase(0);
           } else {
             setSubmitError(
               "As próximas perguntas ainda não foram geradas. Atualize a página ou tente novamente em instantes."
@@ -226,6 +255,8 @@ export default function Diagnostic() {
         questions: next.questions,
         currentQuestionIndex: 0,
       });
+      setCurrentPhaseQuestionsCount(Math.max(1, next.total_questions ?? next.questions.length));
+      setValidAnswersInCurrentPhase(0);
     } catch (e) {
       if (import.meta.env.DEV) {
         console.error(e);
@@ -242,16 +273,31 @@ export default function Diagnostic() {
   };
 
   const handleFinish = async () => {
-    if (!id || !resultToken) return;
+    if (!id) return;
     setFinishing(true);
+    setSubmitError(null);
     try {
+      let tokenToUse = resultToken;
+      if (!tokenToUse) {
+        const currentState = await getCurrentState(id);
+        tokenToUse = currentState.result_token ?? null;
+        if (tokenToUse) {
+          useDiagnosticStore.setState({ resultToken: tokenToUse });
+        }
+      }
+      if (!tokenToUse) {
+        setSubmitError("Não foi possível localizar seu link de resultado. Atualize a página e tente novamente.");
+        return;
+      }
       await finishDiagnostic(id);
       reset();
-      navigate(`/resultado/${resultToken}`, { state: { diagnosticId: id } });
-    } catch (e) {
+      navigate(`/resultado/${tokenToUse}`, { state: { diagnosticId: id } });
+    } catch (e: unknown) {
       if (import.meta.env.DEV) {
         console.error(e);
       }
+      const msg = getErrorDetailMessage(e);
+      setSubmitError(msg || "Erro ao finalizar o diagnóstico. Tente novamente.");
     } finally {
       setFinishing(false);
     }
@@ -340,6 +386,36 @@ export default function Diagnostic() {
   }
 
   if (!currentQuestion) {
+    const isMiddlePhaseEnd = questions.length > 0 && phase >= 2 && phase < 4;
+    if (isMiddlePhaseEnd) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center max-w-md space-y-4">
+          <p className="text-muted-foreground">
+            Você chegou ao fim desta fase. Para avançar, é necessário responder no mínimo{" "}
+            <strong>{requiredAnswersInCurrentPhase}</strong> perguntas com{" "}
+            <strong>{MIN_VALID_WORDS}+ palavras</strong>.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Respondidas nesta fase: <strong>{validAnswersInCurrentPhase}</strong> de{" "}
+            <strong>{requiredAnswersInCurrentPhase}</strong>.
+          </p>
+          {canGenerateNextPhase ? (
+            <Button onClick={handleLoadNextPhaseFromResume} disabled={generatingNextPhase}>
+              {generatingNextPhase ? "Gerando..." : "Gerar próxima fase"}
+            </Button>
+          ) : (
+            <p className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 p-3 rounded">
+              Faltam <strong>{missingAnswersForNextPhase}</strong> respostas válidas nesta fase.
+              Use &quot;Anterior&quot; para voltar e &quot;Gravar e continuar&quot; para salvar.
+            </p>
+          )}
+          {submitError && (
+            <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{submitError}</p>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 space-y-4">
         <p className="text-muted-foreground">Você pode finalizar o diagnóstico.</p>
@@ -365,8 +441,20 @@ export default function Diagnostic() {
         phase={phase}
       />
 
-      {/* Botão para salvar e sair */}
-      <div className="flex justify-end pt-2 pb-4">
+      {/* Ações rápidas abaixo da barra de progresso */}
+      <div className={`flex items-center gap-3 pt-2 pb-4 ${canFinish ? "justify-between" : "justify-end"}`}>
+        {canFinish ? (
+          <Button
+            variant="outline"
+            onClick={handleFinish}
+            disabled={finishing}
+            className="border-2 border-primary-200 bg-primary-50 text-foreground hover:bg-primary-100 hover:border-primary-300"
+          >
+            {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
+          </Button>
+        ) : (
+          <div />
+        )}
         <SaveAndExitButton
           diagnosticId={diagnosticId || ""}
           email={userEmail || "usuario@exemplo.com"}
@@ -409,20 +497,9 @@ export default function Diagnostic() {
       </div>
 
       {canFinish ? (
-        <div className="text-center pt-4 space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Continue respondendo para diagnóstico ainda mais preciso.
-          </p>
-          <Button
-            variant="outline"
-            onClick={handleFinish}
-            disabled={finishing}
-            className="border-2 border-primary-200 bg-primary-50 text-foreground hover:bg-primary-100 hover:border-primary-300"
-          >
-            {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
-          </Button>
+        <div className="text-center pt-4">
           <p className="text-xs text-muted-foreground">
-            Você atingiu os critérios (40+ perguntas ou 3.500 palavras em 12 áreas).
+            Você atingiu os critérios (40+ perguntas ou 3.500 palavras em 12 áreas). Se quiser, finalize no botão acima.
           </p>
         </div>
       ) : (

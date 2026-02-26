@@ -17,6 +17,7 @@ async def generate_adaptive_questions(
     identified_patterns: list[str],
     rag_context: str,
     phase: int,
+    investigation_context: str = "",
     adaptive_templates: list[dict[str, Any]] | None = None,
     max_questions: int = 15,
 ) -> list[dict[str, Any]]:
@@ -28,6 +29,7 @@ async def generate_adaptive_questions(
         underrepresented_areas: Áreas com poucas respostas
         identified_patterns: Padrões identificados nas respostas
         rag_context: Contexto do RAG
+        investigation_context: Histórico estruturado por fase + análise acumulada
         phase: Fase atual (2, 3 ou 4)
 
     Returns:
@@ -35,14 +37,22 @@ async def generate_adaptive_questions(
     """
     def _answer_summary(r: dict) -> str:
         val = r.get("answer_value") or {}
-        return val.get("text") or ("Nota " + str(val.get("scale", "")))
+        text = " ".join(str(val.get("text") or "").split()).strip()
+        if text:
+            return text[:220] + ("..." if len(text) > 220 else "")
+        scale = val.get("scale")
+        return "Nota " + str(scale) if scale is not None else "Sem conteúdo textual"
 
-    responses_text = "\n".join(
-        [
-            f"- {r.get('question_area', 'Geral')}: {_answer_summary(r)}"
-            for r in user_responses[-20:]
-        ]
-    )
+    investigation_context_rendered = (investigation_context or "").strip()
+    if not investigation_context_rendered:
+        # Backward compatibility: gera contexto mínimo se não vier do pipeline.
+        responses_text = "\n".join(
+            [
+                f"- {r.get('question_area', 'Geral')}: {_answer_summary(r)}"
+                for r in user_responses
+            ]
+        )
+        investigation_context_rendered = f"## HISTÓRICO POR FASE\n{responses_text}\n\n## ANÁLISE ACUMULADA\n- Não informada"
 
     system_prompt = """Você é Nara, especialista em transformação pessoal por meio de perguntas profundas e acessíveis.
 Sua missão é ajudar a pessoa a entender o que está vivendo hoje e a se aproximar de quem ela quer se tornar.
@@ -134,9 +144,6 @@ Retorne apenas JSON válido."""
     prompt = f"""# TAREFA
 Gere exatamente {max_questions} perguntas NARRATIVAS E ABERTAS para a Fase {phase} do diagnóstico.
 
-## RESPOSTAS ANTERIORES DO USUÁRIO
-{responses_text}
-
 ## ÁREAS COM MENOS COBERTURA (priorizar)
 {", ".join(underrepresented_areas)}
 
@@ -146,8 +153,29 @@ Gere exatamente {max_questions} perguntas NARRATIVAS E ABERTAS para a Fase {phas
 ## CONTEXTO METODOLÓGICO
 {rag_context}
 
+## HISTÓRICO E ANÁLISE ACUMULADA
+{investigation_context_rendered}
+
 ## TEMPLATES ADAPTATIVOS ATIVADOS (quando houver)
 {templates_text}
+
+## NÍVEL DE INVESTIGAÇÃO (Fase {phase} de 4)
+Você está na fase {phase}. A cada fase, a investigação deve ir MAIS FUNDO.
+
+- NÃO repita perguntas superficiais que já foram feitas nas fases anteriores.
+- USE as descobertas acumuladas (histórico + análise) para formular perguntas que investiguem as CAUSAS por trás dos padrões identificados.
+- Quanto mais avançada a fase, mais as perguntas devem:
+  * Confrontar contradições entre o que o usuário diz e o que demonstra.
+  * Explorar crenças e narrativas por trás dos comportamentos relatados.
+  * Testar a disposição real para mudança (não apenas o desejo).
+  * Conectar padrões entre áreas diferentes da vida.
+  * Usar as memórias vermelhas (frases reveladoras) como ponto de partida.
+
+Se esta é a fase 2: investigue o que está por trás dos sintomas do baseline.
+Se esta é a fase 3: investigue crenças e identidade por trás dos conflitos.
+Se esta é a fase 4: investigue prontidão para transformação e caminho prático.
+
+A LLM deve decidir ORGANICAMENTE o que aprofundar com base nas respostas, mas NUNCA ficar na mesma profundidade da fase anterior.
 
 ## REGRAS IMPORTANTES
 1. Distribua perguntas priorizando as áreas menos cobertas
