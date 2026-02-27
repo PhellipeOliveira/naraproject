@@ -1,7 +1,8 @@
 """Endpoints de waitlist."""
 import logging
+import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 
 from app.core.rate_limit import limiter
@@ -48,13 +49,38 @@ async def join_waitlist(request: Request, payload: WaitlistRequest):
             message="Você já está na lista de espera!",
         )
 
-    supabase.table("waitlist").insert({
-        "email": payload.email,
-        "full_name": payload.full_name,
-        "diagnostic_id": payload.diagnostic_id,
-        "source": payload.source,
-        "utm_source": payload.utm_source,
-    }).execute()
+    normalized_diagnostic_id: str | None = None
+    if payload.diagnostic_id:
+        try:
+            normalized_diagnostic_id = str(uuid.UUID(payload.diagnostic_id))
+        except ValueError:
+            normalized_diagnostic_id = None
+
+    try:
+        supabase.table("waitlist").insert({
+            "email": payload.email,
+            "full_name": payload.full_name,
+            "diagnostic_id": normalized_diagnostic_id,
+            "source": payload.source,
+            "utm_source": payload.utm_source,
+        }).execute()
+    except Exception as e:
+        msg = str(e).lower()
+        logger.exception("Erro ao cadastrar waitlist para %s", payload.email)
+        if "duplicate" in msg or "unique" in msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Este e-mail já está na lista de espera.",
+            )
+        if "invalid input syntax for type uuid" in msg or "violates" in msg or "check" in msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não foi possível cadastrar no momento. Revise seus dados e tente novamente.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Não foi possível cadastrar no momento. Tente novamente em instantes.",
+        )
 
     count_result = supabase.table("waitlist").select("id", count="exact").execute()
     position = getattr(count_result, "count", None)

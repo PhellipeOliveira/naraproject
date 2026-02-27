@@ -357,7 +357,7 @@ export default function Diagnostic() {
                   Você já tem {totalAnswers} respostas (acima do mínimo). Clique abaixo para gerar seu relatório.
                 </p>
                 <div className="w-full flex justify-center">
-                  <Button onClick={handleFinish} disabled={finishing}>
+                  <Button variant="gradient" onClick={handleFinish} disabled={finishing}>
                     {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
                   </Button>
                 </div>
@@ -419,7 +419,7 @@ export default function Diagnostic() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 space-y-4">
         <p className="text-muted-foreground">Você pode finalizar o diagnóstico.</p>
-        <Button onClick={handleFinish} disabled={finishing || !canFinish}>
+        <Button variant="gradient" onClick={handleFinish} disabled={finishing || !canFinish}>
           {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
         </Button>
         {!canFinish && progress && (
@@ -445,10 +445,9 @@ export default function Diagnostic() {
       <div className={`flex items-center gap-3 pt-2 pb-4 ${canFinish ? "justify-between" : "justify-end"}`}>
         {canFinish ? (
           <Button
-            variant="outline"
+            variant="gradient"
             onClick={handleFinish}
             disabled={finishing}
-            className="border-2 border-primary-200 bg-primary-50 text-foreground hover:bg-primary-100 hover:border-primary-300"
           >
             {finishing ? "Gerando relatório..." : "Finalizar e ver resultado"}
           </Button>

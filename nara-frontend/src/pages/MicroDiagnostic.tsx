@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   finishMicroDiagnostic,
+  getMicroDiagnosticPdfByToken,
   getMicroDiagnosticState,
   submitMicroDiagnosticAnswers,
 } from "../api/diagnostic";
@@ -16,6 +17,7 @@ export default function MicroDiagnostic() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function refreshState() {
@@ -107,6 +109,36 @@ export default function MicroDiagnostic() {
     }
   }
 
+  async function handleDownloadMicroPdf() {
+    if (!token || !microId || !state?.result) return;
+    setDownloadingPdf(true);
+    setError(null);
+    try {
+      const blob = await getMicroDiagnosticPdfByToken(token, microId);
+      const areaSlug = (state.result.area || "area")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      const safeArea = areaSlug || "area";
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `microdiagnostico_nara_${safeArea}_${token}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : null;
+      setError(typeof message === "string" ? message : "Erro ao baixar PDF do microdiagnóstico.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -150,12 +182,17 @@ export default function MicroDiagnostic() {
                 </span>
               ))}
             </div>
-            <Link
-              to={`/meu-diagnostico/${token}`}
-              className={cn(buttonVariants({ variant: "outline" }))}
-            >
-              Voltar ao dashboard
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleDownloadMicroPdf} disabled={downloadingPdf}>
+                {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+              </Button>
+              <Link
+                to={`/meu-diagnostico/${token}`}
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                Voltar ao dashboard
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

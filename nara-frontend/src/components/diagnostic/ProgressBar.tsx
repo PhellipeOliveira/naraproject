@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-const GLOBAL_TARGET_ANSWERS = 40;
+const GLOBAL_TARGET_ANSWERS = 60;
 
 interface ProgressBarProps {
   current: number;
@@ -116,7 +116,7 @@ export function ProgressBar({
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">
-            <span className="font-semibold text-foreground">{totalAnswers}</span> de{" "}
+            <span className="font-semibold text-foreground">{totalAnswers}</span> respostas de{" "}
             {GLOBAL_TARGET_ANSWERS} perguntas
           </span>
           <span className="text-muted-foreground">

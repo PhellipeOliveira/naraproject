@@ -1,5 +1,6 @@
 """Endpoints de diagnóstico."""
 import logging
+import re
 from io import BytesIO
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -8,6 +9,8 @@ from pydantic import EmailStr, ValidationError
 from app.models.diagnostic import (
     AnswerSubmitRequest,
     AnswerSubmitResponse,
+    CompletedMicroDiagnosticItemResponse,
+    CompletedMicroDiagnosticsListResponse,
     DiagnosticOwnerEmailResponse,
     DiagnosticStartRequest,
     DiagnosticStartResponse,
@@ -279,6 +282,34 @@ async def get_result_pdf_by_token(request: Request, token: str):
     )
 
 
+@router.get("/result/{token}/pdf/micro/{micro_id}")
+@limiter.limit("10/minute")
+async def get_micro_diagnostic_pdf_by_token(request: Request, token: str, micro_id: str):
+    """Baixa versão PDF do microdiagnóstico pelo token público."""
+    try:
+        pdf_bytes = await service.get_micro_diagnostic_pdf_by_token(token, micro_id)
+        micro_state = await service.get_micro_diagnostic(token, micro_id)
+        area = str((micro_state.get("result") or {}).get("area") or "area")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao gerar PDF do microdiagnóstico")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao gerar PDF do microdiagnóstico.",
+        )
+
+    area_slug = re.sub(r"[^a-z0-9]+", "_", area.lower()).strip("_") or "area"
+    filename = f"microdiagnostico_nara_{area_slug}_{token}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/result/{token}/micro-report", response_model=MicroReportResponse)
 @limiter.limit("20/minute")
 async def create_micro_report(request: Request, token: str, payload: MicroReportRequest):
@@ -293,6 +324,25 @@ async def create_micro_report(request: Request, token: str, payload: MicroReport
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro ao gerar micro-relatório.",
+        )
+
+
+@router.get("/result/{token}/micro-diagnostics", response_model=CompletedMicroDiagnosticsListResponse)
+@limiter.limit("30/minute")
+async def list_completed_micro_diagnostics(request: Request, token: str):
+    """Lista microdiagnósticos concluídos para o token informado."""
+    try:
+        items = await service.list_completed_micro_diagnostics_by_token(token)
+        return CompletedMicroDiagnosticsListResponse(
+            items=[CompletedMicroDiagnosticItemResponse(**item) for item in items]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao listar microdiagnósticos concluídos")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao listar microdiagnósticos.",
         )
 
 

@@ -5,6 +5,7 @@ import {
   getResultByToken,
   getResultPdfByToken,
   getOwnerEmailByToken,
+  listCompletedMicroDiagnostics,
 } from "../api/diagnostic";
 import { getMe, getMyDiagnostics } from "../api/auth";
 import type { DiagnosticResultResponse } from "../types";
@@ -29,6 +30,21 @@ const areaById: Record<number, string> = {
   11: "Inovação",
   12: "Lazer",
 };
+
+const DIAGNOSTICS_LIST_CAP = 5;
+
+type DiagnosticsStatusFilter = "completed" | "in_progress" | "abandoned" | "all";
+
+const diagnosticsFilterLabels: Record<DiagnosticsStatusFilter, string> = {
+  completed: "Concluídos",
+  in_progress: "Em andamento",
+  abandoned: "Abandonados",
+  all: "Todos",
+};
+
+function isInProgressStatus(status: string): boolean {
+  return status === "in_progress" || status === "processing" || status === "eligible";
+}
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -58,6 +74,13 @@ export default function UserDashboard() {
   const [setupPasswordConfirm, setSetupPasswordConfirm] = useState("");
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupFeedback, setSetupFeedback] = useState<string | null>(null);
+  const [diagnosticsStatusFilter, setDiagnosticsStatusFilter] =
+    useState<DiagnosticsStatusFilter>("completed");
+  const [showAllDiagnostics, setShowAllDiagnostics] = useState(false);
+  const [completedMicroDiagnostics, setCompletedMicroDiagnostics] = useState<
+    Array<{ micro_id: string; area: string; created_at: string }>
+  >([]);
+  const [loadingCompletedMicroDiagnostics, setLoadingCompletedMicroDiagnostics] = useState(false);
 
   const startDiagnosticUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/diagnostico/iniciar`;
   const isLinkMode = Boolean(token) && !hasSession;
@@ -75,6 +98,7 @@ export default function UserDashboard() {
       if (!session) {
         setHasSession(false);
         setMyDiagnostics([]);
+        setCompletedMicroDiagnostics([]);
         if (token) {
           try {
             const [result, owner] = await Promise.all([
@@ -110,19 +134,25 @@ export default function UserDashboard() {
         const diagnostics = await getMyDiagnostics();
         setMyDiagnostics(diagnostics.items ?? []);
 
-        const selectedToken = token ?? diagnostics.items?.[0]?.result_token ?? null;
+        const firstCompletedToken =
+          diagnostics.items?.find((item) => item.status === "completed")?.result_token ?? null;
+        const selectedToken = token ?? firstCompletedToken;
         setActiveToken(selectedToken);
         if (!selectedToken) {
           setData(null);
           setOwnerEmail(null);
           setSetupEmail(userEmail || "");
+          setCompletedMicroDiagnostics([]);
           return;
         }
-        const [result, owner] = await Promise.all([
+        setLoadingCompletedMicroDiagnostics(true);
+        const [result, owner, microDiagnostics] = await Promise.all([
           getResultByToken(selectedToken),
           getOwnerEmailByToken(selectedToken).catch(() => null),
+          listCompletedMicroDiagnostics(selectedToken).catch(() => ({ items: [] })),
         ]);
         setData(result);
+        setCompletedMicroDiagnostics(microDiagnostics.items ?? []);
         const normalizedOwner = (owner?.email || "").trim().toLowerCase();
         setOwnerEmail(normalizedOwner || null);
         setSetupEmail(normalizedOwner || userEmail || "");
@@ -138,6 +168,7 @@ export default function UserDashboard() {
             : null;
         setError(typeof message === "string" ? message : "Erro ao carregar dashboard");
       } finally {
+        setLoadingCompletedMicroDiagnostics(false);
         setAuthLoading(false);
         setLoading(false);
       }
@@ -154,6 +185,21 @@ export default function UserDashboard() {
       }),
     [data?.area_analysis]
   );
+  const filteredDiagnostics = useMemo(() => {
+    if (diagnosticsStatusFilter === "all") return myDiagnostics;
+    if (diagnosticsStatusFilter === "in_progress") {
+      return myDiagnostics.filter((item) => isInProgressStatus(item.status));
+    }
+    return myDiagnostics.filter((item) => item.status === diagnosticsStatusFilter);
+  }, [diagnosticsStatusFilter, myDiagnostics]);
+
+  const visibleDiagnostics = useMemo(() => {
+    if (showAllDiagnostics) return filteredDiagnostics;
+    return filteredDiagnostics.slice(0, DIAGNOSTICS_LIST_CAP);
+  }, [filteredDiagnostics, showAllDiagnostics]);
+
+  const hasMoreDiagnostics = filteredDiagnostics.length > DIAGNOSTICS_LIST_CAP;
+  const shouldShowDiagnosticsFilter = myDiagnostics.length > 1;
 
   const handleContinueWithGoogle = () => {
     if (!activeToken) return;
@@ -377,14 +423,50 @@ export default function UserDashboard() {
         </CardContent>
       </Card>
 
-      {hasSession && myDiagnostics.length > 0 && (
+      {hasSession && (
         <Card>
           <CardHeader>
-            <h2 className="text-lg font-bold">Meus diagnósticos</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-bold">Meus diagnósticos</h2>
+              {shouldShowDiagnosticsFilter && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="diagnostics-status-filter" className="text-xs text-muted-foreground">
+                    Filtrar
+                  </label>
+                  <select
+                    id="diagnostics-status-filter"
+                    value={diagnosticsStatusFilter}
+                    onChange={(event) => {
+                      setDiagnosticsStatusFilter(event.target.value as DiagnosticsStatusFilter);
+                      setShowAllDiagnostics(false);
+                    }}
+                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="completed">{diagnosticsFilterLabels.completed}</option>
+                    <option value="in_progress">{diagnosticsFilterLabels.in_progress}</option>
+                    <option value="abandoned">{diagnosticsFilterLabels.abandoned}</option>
+                    <option value="all">{diagnosticsFilterLabels.all}</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {myDiagnostics.map((item) => (
-              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 p-3 border rounded-lg">
+            {myDiagnostics.length === 0 && (
+              <p className="text-sm text-muted-foreground">Você ainda não tem diagnósticos.</p>
+            )}
+
+            {myDiagnostics.length > 0 && filteredDiagnostics.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Nenhum diagnóstico encontrado em {diagnosticsFilterLabels[diagnosticsStatusFilter].toLowerCase()}.
+              </p>
+            )}
+
+            {visibleDiagnostics.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+              >
                 <div>
                   <p className="text-sm font-medium">Token: {item.result_token}</p>
                   <p className="text-xs text-muted-foreground">
@@ -399,6 +481,16 @@ export default function UserDashboard() {
                 </Link>
               </div>
             ))}
+
+            {hasMoreDiagnostics && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllDiagnostics((current) => !current)}
+              >
+                {showAllDiagnostics ? "Ver menos diagnósticos" : "Ver mais diagnósticos"}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -477,6 +569,40 @@ export default function UserDashboard() {
               </Button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-bold">Resultado do microdiagnóstico</h2>
+          <p className="text-sm text-muted-foreground">
+            Revise os microdiagnósticos concluídos por área.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loadingCompletedMicroDiagnostics && (
+            <p className="text-sm text-muted-foreground">Carregando microdiagnósticos...</p>
+          )}
+
+          {!loadingCompletedMicroDiagnostics && completedMicroDiagnostics.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nenhum microdiagnóstico concluído ainda. Escolha uma área acima para iniciar.
+            </p>
+          )}
+
+          {!loadingCompletedMicroDiagnostics &&
+            completedMicroDiagnostics.map((micro) => (
+              <Link
+                key={micro.micro_id}
+                to={`/meu-diagnostico/${activeToken}/micro/${micro.micro_id}`}
+                className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between")}
+              >
+                <span>Ver resultado: {micro.area}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(micro.created_at).toLocaleDateString("pt-BR")}
+                </span>
+              </Link>
+            ))}
         </CardContent>
       </Card>
 

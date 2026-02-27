@@ -35,6 +35,14 @@ export interface SubmitAnswerPayload {
   response_time_seconds?: number;
 }
 
+export interface CompletedMicroDiagnosticsResponse {
+  items: Array<{
+    micro_id: string;
+    area: string;
+    created_at: string;
+  }>;
+}
+
 export async function startDiagnostic(
   payload: StartDiagnosticPayload
 ): Promise<DiagnosticStartResponse> {
@@ -171,6 +179,25 @@ export async function finishMicroDiagnostic(
     `/diagnostic/result/${token}/micro-diagnostic/${microId}/finish`
   );
   return data;
+}
+
+export async function listCompletedMicroDiagnostics(
+  token: string
+): Promise<CompletedMicroDiagnosticsResponse> {
+  const { data } = await apiClient.get<CompletedMicroDiagnosticsResponse>(
+    `/diagnostic/result/${token}/micro-diagnostics`
+  );
+  return data;
+}
+
+export async function getMicroDiagnosticPdfByToken(
+  token: string,
+  microId: string
+): Promise<Blob> {
+  const res = await apiClient.get(`/diagnostic/result/${token}/pdf/micro/${microId}`, {
+    responseType: "blob",
+  });
+  return res.data as Blob;
 }
 
 /** Normaliza e-mail para comparação (trim + minúsculas). */

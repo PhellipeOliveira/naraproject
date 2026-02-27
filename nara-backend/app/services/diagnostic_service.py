@@ -8,7 +8,7 @@ from app.rag.pipeline import NaraDiagnosticPipeline
 from app.services.email_service import EmailService
 from app.services.micro_diagnostic_service import micro_diagnostic_service
 from app.services.micro_report_service import generate_micro_report_by_token
-from app.services.pdf_service import build_diagnostic_pdf
+from app.services.pdf_service import build_diagnostic_pdf, build_micro_diagnostic_pdf
 
 pipeline = NaraDiagnosticPipeline()
 email_service = EmailService()
@@ -17,6 +17,20 @@ logger = logging.getLogger(__name__)
 
 class DiagnosticService:
     """Interface de alto nível para operações de diagnóstico."""
+
+    def _get_diagnostic_id_by_token(self, token: str) -> str:
+        from app.database import supabase
+
+        diag_result = (
+            supabase.table("diagnostics")
+            .select("id")
+            .eq("result_token", token)
+            .limit(1)
+            .execute()
+        )
+        if not diag_result.data or len(diag_result.data) == 0:
+            raise ValueError("Resultado não encontrado ou token inválido.")
+        return str(diag_result.data[0]["id"])
 
     async def start_diagnostic(
         self,
@@ -175,18 +189,11 @@ class DiagnosticService:
 
     async def get_result_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado pelo token público."""
-        from app.database import supabase
-
-        diag_result = (
-            supabase.table("diagnostics")
-            .select("id")
-            .eq("result_token", token)
-            .limit(1)
-            .execute()
-        )
-        if not diag_result.data or len(diag_result.data) == 0:
+        try:
+            diagnostic_id = self._get_diagnostic_id_by_token(token)
+        except ValueError:
             return None
-        return await self.get_result(str(diag_result.data[0]["id"]))
+        return await self.get_result(diagnostic_id)
 
     async def get_owner_email_by_token(self, token: str) -> Optional[str]:
         """Obtém email do titular por result_token."""
@@ -209,6 +216,19 @@ class DiagnosticService:
         if not result:
             raise ValueError("Resultado não encontrado.")
         return build_diagnostic_pdf(result)
+
+    async def get_micro_diagnostic_pdf_by_token(self, token: str, micro_id: str) -> bytes:
+        """Gera PDF de um microdiagnóstico concluído a partir do token público."""
+        micro_state = await self.get_micro_diagnostic(token, micro_id)
+        if micro_state.get("status") != "completed":
+            raise ValueError("Microdiagnóstico ainda não foi concluído.")
+
+        result = micro_state.get("result")
+        if not isinstance(result, dict) or not result:
+            raise ValueError("Resultado do microdiagnóstico não encontrado.")
+
+        area = str(result.get("area") or "Área não informada")
+        return build_micro_diagnostic_pdf(area=area, result_data=result)
 
     async def generate_micro_report(self, token: str, area: str) -> Dict[str, Any]:
         """Gera micro-relatório por área com cache por diagnóstico/área."""
@@ -234,6 +254,29 @@ class DiagnosticService:
     async def finish_micro_diagnostic(self, token: str, micro_id: str) -> Dict[str, Any]:
         """Finaliza micro-diagnóstico e retorna resultado."""
         return await micro_diagnostic_service.finish_micro_diagnostic(token, micro_id)
+
+    async def list_completed_micro_diagnostics_by_token(self, token: str) -> list[Dict[str, Any]]:
+        """Lista microdiagnósticos concluídos de um diagnóstico (via token público)."""
+        from app.database import supabase
+
+        diagnostic_id = self._get_diagnostic_id_by_token(token)
+        result = (
+            supabase.table("micro_diagnostics")
+            .select("id, area, created_at")
+            .eq("diagnostic_id", diagnostic_id)
+            .eq("status", "completed")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return [
+            {
+                "micro_id": str(row.get("id")),
+                "area": row.get("area") or "Área não informada",
+                "created_at": str(row.get("created_at") or ""),
+            }
+            for row in (result.data or [])
+            if row.get("id")
+        ]
 
     async def check_existing_diagnostic(self, email: str) -> Dict[str, Any]:
         """Verifica se existe diagnóstico em andamento para o email."""
