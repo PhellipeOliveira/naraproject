@@ -208,6 +208,20 @@ class MicroDiagnosticStateResponse(BaseModel):
     result: Optional[MicroReportResponse] = None
 
 
+class CompletedMicroDiagnosticItemResponse(BaseModel):
+    """Item de microdiagnóstico concluído."""
+
+    micro_id: str
+    area: str
+    created_at: str
+
+
+class CompletedMicroDiagnosticsListResponse(BaseModel):
+    """Lista de microdiagnósticos concluídos para um token."""
+
+    items: List[CompletedMicroDiagnosticItemResponse]
+
+
 class DiagnosticOwnerEmailResponse(BaseModel):
     """Email do titular associado ao result_token."""
 

@@ -128,10 +128,9 @@ export function QuestionCard({
                   <motion.span
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="flex items-center gap-1.5 text-success font-semibold"
+                    className="flex items-center text-success font-semibold"
                   >
                     <Check className="w-4 h-4" />
-                    Pronto para salvar
                   </motion.span>
                 ) : (
                   <span className="text-muted-foreground">mínimo 10 palavras</span>

@@ -53,6 +53,7 @@ export default function Result() {
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistSent, setWaitlistSent] = useState(false);
   const [waitlistMessage, setWaitlistMessage] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -418,36 +419,51 @@ export default function Result() {
         )}
 
         {/* WAITLIST */}
-        {!waitlistSent && (
-          <motion.div variants={itemVariants}>
-            <Card className="bg-primary/5 border-primary/20">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-primary" />
-                  <div>
-                    <h2 className="font-semibold">Lista de espera</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Receba novidades e avisos de novas funcionalidades
-                    </p>
-                  </div>
+        <motion.div variants={itemVariants}>
+          <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-primary" />
+                <div>
+                  <h2 className="font-semibold">A nova NARA está chegando</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Phellipe está preparando uma versão 100x mais robusta e inovadora. Deixe seu
+                    e-mail para ser avisado em primeira mão e não perder essa evolução.
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!waitlistSent && (
                 <form
                   className="flex gap-2"
                   onSubmit={async (e) => {
                     e.preventDefault();
                     if (!waitlistEmail.trim()) return;
+                    setWaitlistSubmitting(true);
+                    setWaitlistMessage("");
                     try {
                       const res = await joinWaitlist({
                         email: waitlistEmail.trim(),
                         source: "diagnostic",
-                        diagnostic_id: token ?? undefined,
+                        diagnostic_id: diagnosticId ?? undefined,
                       });
                       setWaitlistSent(true);
-                      setWaitlistMessage(res.message);
-                    } catch {
-                      setWaitlistMessage("Erro ao cadastrar.");
+                      setWaitlistMessage(`${res.message} Você será avisado quando a nova NARA for lançada.`);
+                    } catch (err: unknown) {
+                      const detail =
+                        err && typeof err === "object" && "response" in err
+                          ? (err as { response?: { data?: { detail?: string | string[] } } }).response?.data?.detail
+                          : null;
+                      if (Array.isArray(detail)) {
+                        setWaitlistMessage(detail.join(" "));
+                      } else if (typeof detail === "string" && detail.trim()) {
+                        setWaitlistMessage(detail);
+                      } else {
+                        setWaitlistMessage("Erro ao cadastrar.");
+                      }
+                    } finally {
+                      setWaitlistSubmitting(false);
                     }
                   }}
                 >
@@ -457,16 +473,19 @@ export default function Result() {
                     value={waitlistEmail}
                     onChange={(e) => setWaitlistEmail(e.target.value)}
                     className="flex-1"
+                    disabled={waitlistSubmitting}
                   />
-                  <Button type="submit" variant="gradient">Entrar</Button>
+                  <Button type="submit" variant="gradient" disabled={waitlistSubmitting}>
+                    {waitlistSubmitting ? "Enviando..." : "Quero ser avisado"}
+                  </Button>
                 </form>
-                {waitlistMessage && (
-                  <p className="text-sm text-muted-foreground mt-2">{waitlistMessage}</p>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+              )}
+              {waitlistMessage && (
+                <p className="text-sm text-muted-foreground mt-2">{waitlistMessage}</p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* ACTIONS */}
         <motion.div variants={itemVariants} className="flex justify-center gap-3 pb-8">
