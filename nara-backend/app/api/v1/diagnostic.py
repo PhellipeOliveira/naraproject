@@ -1,13 +1,17 @@
 """Endpoints de diagnóstico."""
 import logging
+import re
 from io import BytesIO
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import EmailStr
+from pydantic import EmailStr, ValidationError
 
 from app.models.diagnostic import (
     AnswerSubmitRequest,
     AnswerSubmitResponse,
+    CompletedMicroDiagnosticItemResponse,
+    CompletedMicroDiagnosticsListResponse,
+    DiagnosticOwnerEmailResponse,
     DiagnosticStartRequest,
     DiagnosticStartResponse,
     EligibilityResponse,
@@ -76,6 +80,23 @@ async def start_diagnostic(request: Request, payload: DiagnosticStartRequest):
     )
 
 
+@router.post("/{diagnostic_id}/abandon")
+@limiter.limit("10/minute")
+async def abandon_diagnostic(request: Request, diagnostic_id: str):
+    """
+    Marca o diagnóstico como abandonado.
+    Usado quando o usuário escolhe "Começar novo" na tela de início.
+    """
+    try:
+        await service.abandon_diagnostic(diagnostic_id)
+        return {"status": "abandoned"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
 @router.post("/{diagnostic_id}/answer", response_model=AnswerSubmitResponse)
 @limiter.limit("120/minute")
 async def submit_answer(request: Request, diagnostic_id: str, payload: AnswerSubmitRequest):
@@ -119,6 +140,9 @@ async def get_next_questions(request: Request, diagnostic_id: str):
     except ValueError as e:
         msg = str(e) if str(e) else "Diagnóstico não encontrado"
         if "Não há próxima fase" in msg or "completou todas as fases" in msg:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+        msg_lower = msg.lower()
+        if ("mínimo" in msg_lower or "minimo" in msg_lower) and "quest" in msg_lower and "fase" in msg_lower:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
     except Exception as e:
@@ -213,7 +237,27 @@ async def get_result_by_token(request: Request, token: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Resultado não encontrado ou token inválido.",
         )
-    return DiagnosticResultResponse(**result)
+    try:
+        return DiagnosticResultResponse(**result)
+    except ValidationError:
+        logger.exception("Falha ao validar resultado por token: %s", token)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Resultado indisponível no momento. Tente novamente em instantes.",
+        )
+
+
+@router.get("/result/{token}/owner-email", response_model=DiagnosticOwnerEmailResponse)
+@limiter.limit("30/minute")
+async def get_owner_email_by_token(request: Request, token: str):
+    """Obtém email do titular associado ao token público."""
+    email = await service.get_owner_email_by_token(token)
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diagnóstico não encontrado ou token inválido.",
+        )
+    return DiagnosticOwnerEmailResponse(email=email)
 
 
 @router.get("/result/{token}/pdf")
@@ -238,6 +282,34 @@ async def get_result_pdf_by_token(request: Request, token: str):
     )
 
 
+@router.get("/result/{token}/pdf/micro/{micro_id}")
+@limiter.limit("10/minute")
+async def get_micro_diagnostic_pdf_by_token(request: Request, token: str, micro_id: str):
+    """Baixa versão PDF do microdiagnóstico pelo token público."""
+    try:
+        pdf_bytes = await service.get_micro_diagnostic_pdf_by_token(token, micro_id)
+        micro_state = await service.get_micro_diagnostic(token, micro_id)
+        area = str((micro_state.get("result") or {}).get("area") or "area")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao gerar PDF do microdiagnóstico")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao gerar PDF do microdiagnóstico.",
+        )
+
+    area_slug = re.sub(r"[^a-z0-9]+", "_", area.lower()).strip("_") or "area"
+    filename = f"microdiagnostico_nara_{area_slug}_{token}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/result/{token}/micro-report", response_model=MicroReportResponse)
 @limiter.limit("20/minute")
 async def create_micro_report(request: Request, token: str, payload: MicroReportRequest):
@@ -252,6 +324,25 @@ async def create_micro_report(request: Request, token: str, payload: MicroReport
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro ao gerar micro-relatório.",
+        )
+
+
+@router.get("/result/{token}/micro-diagnostics", response_model=CompletedMicroDiagnosticsListResponse)
+@limiter.limit("30/minute")
+async def list_completed_micro_diagnostics(request: Request, token: str):
+    """Lista microdiagnósticos concluídos para o token informado."""
+    try:
+        items = await service.list_completed_micro_diagnostics_by_token(token)
+        return CompletedMicroDiagnosticsListResponse(
+            items=[CompletedMicroDiagnosticItemResponse(**item) for item in items]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao listar microdiagnósticos concluídos")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao listar microdiagnósticos.",
         )
 
 
@@ -403,22 +494,38 @@ async def send_resume_link(request: Request, diagnostic_id: str):
     Envia email com link para retomar o diagnóstico.
     Usado quando o usuário clica em "Sair e continuar depois".
     """
-    from app.services.email_service import email_service
     from app.database import supabase
-    
-    # Buscar diagnóstico
-    diag_result = supabase.table("diagnostics").select("*").eq(
-        "id", diagnostic_id
-    ).single().execute()
-    
+    from app.services.email_service import email_service
+
+    try:
+        diag_result = (
+            supabase.table("diagnostics")
+            .select("*")
+            .eq("id", diagnostic_id)
+            .single()
+            .execute()
+        )
+    except Exception as e:
+        logger.exception("Erro ao buscar diagnóstico para envio de retomada: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro ao consultar diagnóstico. Tente novamente.",
+        )
+
     if not diag_result.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Diagnóstico não encontrado"
+            detail="Diagnóstico não encontrado",
         )
-    
+
     diagnostic = diag_result.data
-    
+    email = (diagnostic.get("email") or "").strip()
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Diagnóstico sem email válido para envio.",
+        )
+
     # Buscar elegibilidade detalhada para enriquecer o email de retomada
     eligibility = await service.check_eligibility(diagnostic_id)
     total_answers = int(eligibility["criteria"]["questions"]["current"])
@@ -429,7 +536,7 @@ async def send_resume_link(request: Request, diagnostic_id: str):
     # Enviar email
     try:
         await email_service.send_resume_link(
-            to=diagnostic["email"],
+            to=email,
             user_name=diagnostic.get("full_name"),
             diagnostic_id=diagnostic_id,
             progress=progress,
@@ -441,7 +548,7 @@ async def send_resume_link(request: Request, diagnostic_id: str):
         
         return {
             "status": "sent",
-            "message": f"Email enviado para {diagnostic['email']}"
+            "message": f"Email enviado para {email}"
         }
     except Exception as e:
         logger.exception("send_resume_link failed for diagnostic_id=%s: %s", diagnostic_id, e)

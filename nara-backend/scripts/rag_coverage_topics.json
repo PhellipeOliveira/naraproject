@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "source": "documentos/01_BASE_METODOLOGICA_NARA.md",
+  "groups": [
+    {
+      "id": "areas_estruturantes",
+      "title": "12 Áreas Estruturantes",
+      "concepts": [
+        "Saúde Física",
+        "Saúde Mental",
+        "Saúde Espiritual",
+        "Vida Pessoal",
+        "Vida Amorosa",
+        "Vida Familiar",
+        "Vida Social",
+        "Vida Profissional",
+        "Finanças",
+        "Educação",
+        "Inovação",
+        "Lazer"
+      ],
+      "queries": [
+        "Saúde Física vitalidade volição sinais conflito",
+        "Saúde Mental reestruturação cognitiva narrativa interna",
+        "Saúde Espiritual propósito convicção interior",
+        "Vida Pessoal identidade luz total autoconhecimento",
+        "Vida Amorosa parceria autenticidade círculo narrativo futuro",
+        "Vida Familiar identidades herdadas limites autonomia",
+        "Vida Social relating influência social invisibilidade simbólica",
+        "Vida Profissional capital simbólico autoridade clímax profissional",
+        "Finanças crenças de escassez gestão de capital",
+        "Educação modelagem mentalidade de crescimento M3",
+        "Inovação prototipagem medo de recomeçar",
+        "Lazer rituais de descompressão recarga de energia"
+      ]
+    },
+    {
+      "id": "motores_motivacionais",
+      "title": "4 Motores Motivacionais",
+      "concepts": [
+        "Necessidade",
+        "Valor",
+        "Desejo",
+        "Propósito"
+      ],
+      "queries": [
+        "motores motivacionais",
+        "motor da coerência integridade e valores",
+        "motor da conquista metas tangíveis",
+        "motor da dor alívio de falta interna",
+        "motor do legado impacto contribuição",
+        "motores motivacionais Desejo",
+        "motores motivacionais Necessidade",
+        "motores motivacionais Propósito",
+        "motores motivacionais Valor"
+      ]
+    },
+    {
+      "id": "fases_jornada",
+      "title": "6 Fases da Jornada",
+      "concepts": [
+        "Germinar",
+        "Enraizar",
+        "Desenvolver",
+        "Florescer",
+        "Frutificar",
+        "Realizar"
+      ],
+      "queries": [
+        "fases da jornada",
+        "fases da jornada Desenvolver",
+        "fases da jornada Enraizar",
+        "fases da jornada Florescer",
+        "fases da jornada Frutificar",
+        "fases da jornada Germinar",
+        "fases da jornada Realizar",
+        "reconhecer modelar assumir reforçar etapa da jornada"
+      ]
+    },
+    {
+      "id": "dominios_tematicos",
+      "title": "6 Domínios Temáticos",
+      "concepts": [
+        "D1: MOTIVAÇÕES E CONFLITOS NAS VIDAS DOS INDIVÍDUOS",
+        "D2: CRENÇAS, VALORES E PRINCÍPIOS",
+        "D3: EVOLUÇÃO E DESENVOLVIMENTO PESSOAL",
+        "D4: CONGRUÊNCIA ENTRE IDENTIDADE E CULTURA",
+        "D5: TRANSFORMAÇÃO DE IDENTIDADE E PERSONAGENS",
+        "D6: O PAPEL DOS INDIVÍDUOS NUMA SOCIEDADE PRÓSPERA"
+      ],
+      "queries": [
+        "domínios temáticos",
+        "congruência identidade transformação de identidade papel sociedade próspera",
+        "domínios temáticos D2: CRENÇAS, VALORES E PRINCÍPIOS",
+        "domínios temáticos D3: EVOLUÇÃO E DESENVOLVIMENTO PESSOAL",
+        "motivações conflitos crenças valores princípios evolução desenvolvimento",
+        "congruência identidade transformação de identidade papel sociedade próspera D4: CONGRUÊNCIA ENTRE IDENTIDADE E CULTURA",
+        "congruência identidade transformação de identidade papel sociedade próspera D5: TRANSFORMAÇÃO DE IDENTIDADE E PERSONAGENS",
+        "congruência identidade transformação de identidade papel sociedade próspera D6: O PAPEL DOS INDIVÍDUOS NUMA SOCIEDADE PRÓSPERA",
+        "domínios temáticos D1: MOTIVAÇÕES E CONFLITOS NAS VIDAS DOS INDIVÍDUOS",
+        "domínios temáticos D4: CONGRUÊNCIA ENTRE IDENTIDADE E CULTURA",
+        "domínios temáticos D5: TRANSFORMAÇÃO DE IDENTIDADE E PERSONAGENS",
+        "domínios temáticos D6: O PAPEL DOS INDIVÍDUOS NUMA SOCIEDADE PRÓSPERA",
+        "motivações conflitos crenças valores princípios evolução desenvolvimento D2: CRENÇAS, VALORES E PRINCÍPIOS",
+        "motivações conflitos crenças valores princípios evolução desenvolvimento D3: EVOLUÇÃO E DESENVOLVIMENTO PESSOAL"
+      ]
+    },
+    {
+      "id": "pontos_entrada",
+      "title": "4 Pontos de Entrada",
+      "concepts": [
+        "Emocional",
+        "Simbólico",
+        "Comportamental",
+        "Existencial"
+      ],
+      "queries": [
+        "pontos de entrada",
+        "pontos de entrada Comportamental",
+        "pontos de entrada Emocional",
+        "pontos de entrada Existencial",
+        "pontos de entrada Simbólico",
+        "porta comportamental micro hábitos protocolo concreto",
+        "porta emocional validar regular emoção",
+        "porta existencial missão legado propósito",
+        "porta simbólica ressignificar valores"
+      ]
+    },
+    {
+      "id": "conceitos_metodologia",
+      "title": "Conceitos-Chave (M1/MX/M2X e correlatos)",
+      "concepts": [
+        "M1",
+        "MX",
+        "M2X",
+        "Gap MX",
+        "CN",
+        "CN+",
+        "Incongruência Simbólica"
+      ],
+      "queries": [
+        "capital simbólico pontos de prova FCU volição",
+        "gap círculo narrativo",
+        "gap círculo narrativo CN+",
+        "gap círculo narrativo M1",
+        "gap círculo narrativo M2X",
+        "gap círculo narrativo MX",
+        "incongruência simbólica narrativa identidade hábitos",
+        "memórias vermelhas identidades herdadas"
+      ]
+    },
+    {
+      "id": "clusters_crise",
+      "title": "6 Clusters Operacionais de Crise",
+      "concepts": [
+        "Identidade Raiz",
+        "Sentido e Direção",
+        "Execução e Estrutura",
+        "Conexão e Expressão",
+        "Incongruência Identidade-Cultura",
+        "Transformação de Personagem"
+      ],
+      "queries": [
+        "clusters operacionais de crise diagnóstico M1",
+        "identidade raiz identidades herdadas vergonha",
+        "sentido e direção futuro opaco urgência tóxica",
+        "execução e estrutura procrastinação paralisia decisória",
+        "conexão e expressão invisibilidade simbólica medo julgamento",
+        "incongruência identidade cultura choque ambiental",
+        "transformação de personagem papéis obsoletos medo de crescer"
+      ]
+    },
+    {
+      "id": "tcc_ferramental",
+      "title": "Ferramental TCC",
+      "concepts": [
+        "Questionamento Socrático",
+        "Flecha Descendente",
+        "Descatastrofização",
+        "Reestruturação Cognitiva"
+      ],
+      "queries": [
+        "técnicas TCC âncoras práticas ponto de entrada",
+        "questionamento socrático evidência alternativa utilidade",
+        "flecha descendente crença central",
+        "descatastrofização pior cenário probabilidade real",
+        "reestruturação cognitiva vítima para autor"
+      ]
+    },
+    {
+      "id": "ancoras_praticas",
+      "title": "19 Âncoras Práticas",
+      "concepts": [
+        "Referências",
+        "Objetos",
+        "Ambientes",
+        "Grupo",
+        "Tom",
+        "Vocabulário",
+        "Postura",
+        "Vestimenta",
+        "Rituais Matinais",
+        "Rituais Noturnos",
+        "Limites",
+        "Marcos",
+        "Emoção Projetada",
+        "Gestão de Energia",
+        "Práticas de Recarga",
+        "Tarefas Identitárias",
+        "Microentregas",
+        "Exposição Gradual",
+        "Testemunhas"
+      ],
+      "queries": [
+        "âncoras de ação",
+        "âncoras de ação Exposição Gradual",
+        "âncoras de ação Microentregas",
+        "âncoras de ação Tarefas Identitárias",
+        "âncoras de ação Testemunhas",
+        "âncoras de ambiente",
+        "âncoras de ambiente Ambientes",
+        "âncoras de ambiente Grupo",
+        "âncoras de ambiente Objetos",
+        "âncoras de ambiente Referências",
+        "âncoras de comunicação",
+        "âncoras de comunicação Postura",
+        "âncoras de comunicação Tom",
+        "âncoras de comunicação Vestimenta",
+        "âncoras de comunicação Vocabulário",
+        "âncoras de emoção",
+        "âncoras de emoção Gestão de Energia",
+        "âncoras de emoção Práticas de Recarga",
+        "âncoras de rotina",
+        "âncoras de rotina Limites",
+        "âncoras de rotina Marcos",
+        "âncoras de rotina Rituais Matinais",
+        "âncoras de rotina Rituais Noturnos",
+        "âncoras práticas assunção intencional camadas de ação concreta"
+      ]
+    },
+    {
+      "id": "rag_inteligencia_contextual",
+      "title": "RAG e Inteligência Contextual",
+      "concepts": [
+        "Estrutura do Chunk",
+        "Vetor de Estado",
+        "Processo de Determinação do Usuário"
+      ],
+      "queries": [
+        "estrutura do chunk para RAG inteligência contextual",
+        "vetor de estado motor dominante fase jornada ponto entrada",
+        "query diagnóstica sintomas hipótese estrutura interna",
+        "RAG não responde o que fazer revela quem usuário está sendo"
+      ]
+    },
+    {
+      "id": "operacao_validacao",
+      "title": "Operação e Validação",
+      "concepts": [
+        "Critérios de Elegibilidade",
+        "Cobertura das 12 áreas",
+        "Checklist de Qualidade"
+      ],
+      "queries": [
+        "critérios de elegibilidade diagnóstico 40 respostas 3500 palavras",
+        "cobertura das 12 áreas estruturantes",
+        "checklist de qualidade do diagnóstico narrativo"
+      ]
+    }
+  ]
+}

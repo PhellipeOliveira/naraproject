@@ -134,7 +134,8 @@ async def retrieve_for_question_generation(
     all_chunks: list[dict[str, Any]] = []
 
     context_analysis = context_analysis or {}
-    phase_name = context_analysis.get("fase_jornada") or f"Fase {phase}"
+    # Quando a fase da jornada não vem da análise, não confundir com etapa técnica (fase 2/3/4 do fluxo).
+    phase_name = context_analysis.get("fase_jornada") or "Fase da jornada não identificada"
     crisis_list = context_analysis.get("clusters_identificados") or []
     crisis_text = ", ".join(crisis_list) if crisis_list else "Não identificado"
     structured_query = _build_structured_query(
@@ -214,7 +215,7 @@ async def retrieve_for_report_generation(
 
     context_chunks: list[dict[str, Any]] = []
 
-    phase_name = context_analysis.get("fase_jornada") or context_analysis.get("nivel_maturidade") or "Não identificado"
+    phase_name = context_analysis.get("fase_jornada") or "Fase da jornada não identificada"
     crisis_list = context_analysis.get("clusters_identificados") or []
     crisis_text = ", ".join(crisis_list) if crisis_list else "Não identificado"
     structured_query = _build_structured_query(

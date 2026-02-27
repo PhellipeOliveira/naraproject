@@ -74,7 +74,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Pessoal",
                     "type": "open_long",
-                    "text": "Você trouxe sinais de autocrítica forte no eixo Narrativa. De onde essa voz crítica sobre quem você é hoje parece vir na sua história e que crença ela tenta manter viva?",
+                    "text": "Você trouxe sinais de autocrítica forte na história que conta sobre si. De onde essa voz crítica sobre quem você é hoje parece vir na sua história e que crença ela tenta manter viva?",
                 },
                 {
                     "area": "Saúde Mental",
@@ -154,7 +154,7 @@ class NaraDiagnosticPipeline:
                 {
                     "area": "Vida Profissional",
                     "type": "open_long",
-                    "text": "Em que contexto o ambiente atual exige um personagem que contradiz seus valores centrais e desorganiza seu eixo Identidade?",
+                    "text": "Em que contexto o ambiente atual exige um personagem que contradiz seus valores centrais e desorganiza quem você acredita ser?",
                 },
                 {
                     "area": "Vida Social",
@@ -221,6 +221,54 @@ class NaraDiagnosticPipeline:
 
         return BASELINE_QUESTIONS
 
+    def _build_fallback_questions_for_phase(
+        self,
+        underrepresented: List[str],
+        dedup_texts: set[str],
+        need_count: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gera perguntas fallback determinísticas para evitar fase com menos de 10 perguntas.
+        Não depende de LLM e prioriza áreas com menor cobertura.
+        """
+        if need_count <= 0:
+            return []
+
+        ordered_areas: List[str] = [a for a in underrepresented if a in self.AREAS]
+        ordered_areas.extend([a for a in self.AREAS if a not in ordered_areas])
+
+        fallback: List[Dict[str, Any]] = []
+        area_idx = 0
+        attempt = 0
+        while len(fallback) < need_count and ordered_areas:
+            area = ordered_areas[area_idx % len(ordered_areas)]
+            variant = attempt % 3
+            if variant == 0:
+                text = f"O que está mais vivo em {area} no seu momento atual?"
+            elif variant == 1:
+                text = f"Qual mudança mais urgente você deseja viver em {area} nos próximos 30 dias?"
+            else:
+                text = f"Que padrão em {area} você quer interromper agora para abrir espaço para uma versão mais alinhada de você?"
+
+            text_norm = text.strip().lower()
+            if text_norm and text_norm not in dedup_texts:
+                dedup_texts.add(text_norm)
+                fallback.append({
+                    "area": area,
+                    "type": "open_long",
+                    "text": text,
+                    "follow_up_hint": "Pergunta fallback para manter continuidade do diagnóstico.",
+                })
+
+            area_idx += 1
+            attempt += 1
+
+            # Evita loop infinito em caso de deduplicação excessiva.
+            if attempt > need_count * 20:
+                break
+
+        return fallback
+
     async def start(
         self,
         email: str,
@@ -236,6 +284,7 @@ class NaraDiagnosticPipeline:
         result_token = f"nara_{uuid.uuid4().hex[:12]}"
         email_normalized = (email or "").strip().lower()
 
+        phase1_count = len(self.baseline_questions)
         diagnostic_data: Dict[str, Any] = {
             "user_id": user_id,
             "anonymous_session_id": session_id if not user_id else None,
@@ -244,7 +293,7 @@ class NaraDiagnosticPipeline:
             "status": "in_progress",
             "current_phase": 1,
             "current_question": 0,
-            "current_phase_questions_count": 15,
+            "current_phase_questions_count": phase1_count,
             "total_answers": 0,
             "total_words": 0,
             "areas_covered": [],  # DB pode ser SMALLINT[]; Supabase aceita lista vazia
@@ -416,6 +465,29 @@ class NaraDiagnosticPipeline:
         )
         answers = answers_result.data or []
 
+        # Trava de progressão: fases 2, 3 e 4 exigem no mínimo 10 respostas válidas na fase atual.
+        MIN_ANSWERS_TO_UNLOCK_NEXT_PHASE = 10
+        MIN_VALID_WORDS_PER_ANSWER = 10
+        if current >= 2:
+            phase_questions_count_raw = diagnostic.get("current_phase_questions_count")
+            phase_questions_count = (
+                int(phase_questions_count_raw)
+                if isinstance(phase_questions_count_raw, (int, float, str))
+                and str(phase_questions_count_raw).isdigit()
+                else settings.QUESTIONS_PER_PHASE
+            )
+            required_in_phase = min(MIN_ANSWERS_TO_UNLOCK_NEXT_PHASE, phase_questions_count)
+            count_in_phase = sum(
+                1
+                for a in answers
+                if a.get("question_phase") == current
+                and int(a.get("word_count") or 0) >= MIN_VALID_WORDS_PER_ANSWER
+            )
+            if count_in_phase < required_in_phase:
+                raise ValueError(
+                    f"Por favor, volte e responda no mínimo {required_in_phase} questões desta fase para prosseguir."
+                )
+
         areas_count: Dict[str, int] = {}
         for a in answers:
             area = a.get("question_area", "Geral")
@@ -429,13 +501,18 @@ class NaraDiagnosticPipeline:
         # Análise contextual para enriquecer geração de perguntas
         logger.info("Analisando contexto das respostas para próxima fase")
         context_analysis = await analyze_answers_context(answers, user_profile=None)
-        
+        investigation_context = self._build_investigation_context(
+            context_analysis=context_analysis,
+            answers=answers,
+            current_phase=current,
+        )
+
         patterns = self._identify_patterns(answers)
         # Enriquecer com insights do analyzer
         if context_analysis.get("motor_dominante"):
             patterns.append(f"Motor dominante: {context_analysis['motor_dominante']}")
         if context_analysis.get("clusters_identificados"):
-            patterns.append(f"Clusters: {', '.join(context_analysis['clusters_identificados'][:2])}")
+            patterns.append(f"Padrões de conflito: {', '.join(context_analysis['clusters_identificados'][:2])}")
         
         next_phase = diagnostic["current_phase"] + 1
 
@@ -477,7 +554,23 @@ class NaraDiagnosticPipeline:
                 if isinstance(question, dict) and question.get("text"):
                     template_questions_raw.append(question)
 
-        dedup_texts: set[str] = set()
+        def _normalize_question_text(value: Any) -> str:
+            return str(value or "").strip().lower()
+
+        used_question_texts = {
+            _normalize_question_text(a.get("question_text"))
+            for a in answers
+            if _normalize_question_text(a.get("question_text"))
+        }
+        persisted_phase_questions = diagnostic.get("current_phase_questions") or []
+        if isinstance(persisted_phase_questions, list):
+            used_question_texts.update(
+                _normalize_question_text(q.get("text"))
+                for q in persisted_phase_questions
+                if isinstance(q, dict) and _normalize_question_text(q.get("text"))
+            )
+
+        dedup_texts: set[str] = set(used_question_texts)
         template_questions: List[Dict[str, Any]] = []
         for question in template_questions_raw:
             normalized_text = str(question.get("text", "")).strip().lower()
@@ -501,23 +594,70 @@ class NaraDiagnosticPipeline:
                 underrepresented_areas=underrepresented,
                 identified_patterns=patterns,
                 rag_context=rag_context,
+                investigation_context=investigation_context,
                 phase=next_phase,
                 adaptive_templates=[],
                 max_questions=llm_question_count,
             )
-            llm_questions = [
-                {
-                    "area": q.get("area", "Geral"),
-                    "type": q.get("type", "open_long"),
-                    "text": q.get("text", ""),
-                    "follow_up_hint": q.get("follow_up_hint", ""),
-                }
-                for q in llm_generated
-                if q.get("text")
-            ]
+            for q in llm_generated:
+                if not q.get("text"):
+                    continue
+                txt_norm = str(q.get("text", "")).strip().lower()
+                if txt_norm and txt_norm not in dedup_texts:
+                    dedup_texts.add(txt_norm)
+                    llm_questions.append({
+                        "area": q.get("area", "Geral"),
+                        "type": q.get("type", "open_long"),
+                        "text": q.get("text", ""),
+                        "follow_up_hint": q.get("follow_up_hint", ""),
+                    })
         combined_questions = template_questions + llm_questions
+        QUESTIONS_PER_PHASE_FIXED = settings.QUESTIONS_PER_PHASE
+        while len(combined_questions) < QUESTIONS_PER_PHASE_FIXED:
+            need = QUESTIONS_PER_PHASE_FIXED - len(combined_questions)
+            extra = await generate_adaptive_questions(
+                user_responses=answers,
+                underrepresented_areas=underrepresented,
+                identified_patterns=patterns,
+                rag_context=rag_context,
+                investigation_context=investigation_context,
+                phase=next_phase,
+                adaptive_templates=[],
+                max_questions=need,
+            )
+            added = 0
+            for q in extra:
+                if added >= need:
+                    break
+                if not q.get("text"):
+                    continue
+                txt_norm = str(q.get("text", "")).strip().lower()
+                if txt_norm and txt_norm not in dedup_texts:
+                    dedup_texts.add(txt_norm)
+                    combined_questions.append({
+                        "area": q.get("area", "Geral"),
+                        "type": q.get("type", "open_long"),
+                        "text": q.get("text", ""),
+                        "follow_up_hint": q.get("follow_up_hint", ""),
+                    })
+                    added += 1
+            if added == 0:
+                break
+
+        MIN_PHASE_QUESTIONS_FOR_UNLOCK = 10
+        if len(combined_questions) < MIN_PHASE_QUESTIONS_FOR_UNLOCK:
+            need_fallback = MIN_PHASE_QUESTIONS_FOR_UNLOCK - len(combined_questions)
+            combined_questions.extend(
+                self._build_fallback_questions_for_phase(
+                    underrepresented=underrepresented,
+                    dedup_texts=dedup_texts,
+                    need_count=need_fallback,
+                )
+            )
+
+        combined_questions = combined_questions[:QUESTIONS_PER_PHASE_FIXED]
         questions: List[Dict[str, Any]] = []
-        for idx, q in enumerate(combined_questions[:15], start=1):
+        for idx, q in enumerate(combined_questions, start=1):
             questions.append({
                 "id": (next_phase - 1) * 15 + idx,
                 "area": q.get("area", "Geral"),
@@ -618,6 +758,93 @@ class NaraDiagnosticPipeline:
             except (ValueError, TypeError):
                 return {}
         return {}
+
+    def _build_investigation_context(
+        self,
+        context_analysis: Dict[str, Any],
+        answers: List[Dict[str, Any]],
+        current_phase: int,
+    ) -> str:
+        """
+        Monta um contexto estruturado por fase + análise acumulada para o gerador.
+        Esse bloco é enviado ao prompt da LLM para orientar aprofundamento progressivo.
+        """
+        phase_labels = {
+            1: "Baseline - Mapeamento inicial",
+            2: "Investigação de conflitos",
+            3: "Aprofundamento de crenças e identidade",
+            4: "Transformação e plano prático",
+        }
+
+        def _truncate(text: Any, limit: int = 220) -> str:
+            normalized = " ".join(str(text or "").split()).strip()
+            if len(normalized) <= limit:
+                return normalized
+            return f"{normalized[:limit - 3]}..."
+
+        def _fmt_list(value: Any, max_items: int = 6) -> str:
+            if not value:
+                return "não identificado"
+            if isinstance(value, list):
+                items = [str(v).strip() for v in value if str(v).strip()]
+                if not items:
+                    return "não identificado"
+                return ", ".join(items[:max_items])
+            return str(value)
+
+        answers_by_phase: Dict[int, List[Dict[str, Any]]] = {}
+        for answer in answers:
+            raw_phase = answer.get("question_phase", 1)
+            phase_num = (
+                int(raw_phase)
+                if isinstance(raw_phase, (int, float, str)) and str(raw_phase).isdigit()
+                else 1
+            )
+            answers_by_phase.setdefault(phase_num, []).append(answer)
+
+        lines: List[str] = []
+        lines.append("## HISTÓRICO POR FASE")
+        lines.append(f"- Fase atual em conclusão: {current_phase}")
+        lines.append(f"- Próxima fase alvo: {current_phase + 1}")
+
+        for phase_num in sorted(answers_by_phase.keys()):
+            phase_answers = answers_by_phase[phase_num]
+            phase_title = phase_labels.get(phase_num, f"Fase {phase_num}")
+            lines.append(f"\n### Fase {phase_num} ({phase_title})")
+
+            if not phase_answers:
+                lines.append("- Sem respostas registradas nesta fase.")
+                continue
+
+            for answer in phase_answers:
+                area = answer.get("question_area", "Geral")
+                question = _truncate(answer.get("question_text", ""), 120)
+                answer_value = self._safe_answer_value(answer)
+                text_answer = _truncate(answer_value.get("text", ""), 220)
+                scale_answer = answer_value.get("scale")
+                if text_answer:
+                    rendered_answer = text_answer
+                elif scale_answer is not None:
+                    rendered_answer = f"Nota {scale_answer}/5"
+                else:
+                    rendered_answer = "Sem conteúdo textual."
+                lines.append(f"- {area} | Q: {question} | R: {rendered_answer}")
+
+        lines.append("\n## ANÁLISE ACUMULADA")
+        lines.append(f"- Motor dominante: {_fmt_list(context_analysis.get('motor_dominante'))}")
+        lines.append(f"- Clusters de crise: {_fmt_list(context_analysis.get('clusters_identificados'))}")
+        lines.append(f"- Tom emocional: {_fmt_list(context_analysis.get('tom_emocional'))}")
+        lines.append(f"- Áreas críticas: {_fmt_list(context_analysis.get('areas_criticas'))}")
+        lines.append(f"- Sinais de conflito: {_fmt_list(context_analysis.get('sinais_conflito'))}")
+        lines.append(f"- Fase da jornada: {_fmt_list(context_analysis.get('fase_jornada'))}")
+        lines.append(f"- Domínios alavanca: {_fmt_list(context_analysis.get('dominios_alavanca'))}")
+        lines.append(f"- Eixo mais comprometido: {_fmt_list(context_analysis.get('eixo_mais_comprometido'))}")
+        lines.append(f"- Nível de maturidade: {_fmt_list(context_analysis.get('nivel_maturidade'))}")
+        lines.append(f"- Memórias vermelhas: {_fmt_list(context_analysis.get('memorias_vermelhas'))}")
+        lines.append(f"- Barreiras identificadas: {_fmt_list(context_analysis.get('barreiras_identificadas'))}")
+        lines.append(f"- Gap MX: {_fmt_list(context_analysis.get('gap_mx'))}")
+
+        return "\n".join(lines)
 
     async def _calculate_area_scores(self, diagnostic_id: str) -> Dict[str, Any]:
         """Calcula scores por área baseado nas respostas."""

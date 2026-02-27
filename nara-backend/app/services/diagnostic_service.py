@@ -1,5 +1,6 @@
 """Serviço de orquestração do diagnóstico."""
 import json
+import logging
 from typing import Any, Dict, Optional
 
 from app.config import settings
@@ -7,14 +8,29 @@ from app.rag.pipeline import NaraDiagnosticPipeline
 from app.services.email_service import EmailService
 from app.services.micro_diagnostic_service import micro_diagnostic_service
 from app.services.micro_report_service import generate_micro_report_by_token
-from app.services.pdf_service import build_diagnostic_pdf
+from app.services.pdf_service import build_diagnostic_pdf, build_micro_diagnostic_pdf
 
 pipeline = NaraDiagnosticPipeline()
 email_service = EmailService()
+logger = logging.getLogger(__name__)
 
 
 class DiagnosticService:
     """Interface de alto nível para operações de diagnóstico."""
+
+    def _get_diagnostic_id_by_token(self, token: str) -> str:
+        from app.database import supabase
+
+        diag_result = (
+            supabase.table("diagnostics")
+            .select("id")
+            .eq("result_token", token)
+            .limit(1)
+            .execute()
+        )
+        if not diag_result.data or len(diag_result.data) == 0:
+            raise ValueError("Resultado não encontrado ou token inválido.")
+        return str(diag_result.data[0]["id"])
 
     async def start_diagnostic(
         self,
@@ -116,8 +132,9 @@ class DiagnosticService:
                     overall_score=report.get("overall_score", 0),
                     summary=(report.get("executive_summary") or "")[:500],
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                # O relatório já foi gerado; falha de envio de email não deve quebrar o fluxo principal.
+                logger.warning("Falha ao enviar email de resultado para %s: %s", diagnostic_id, exc)
 
         return report
 
@@ -125,10 +142,34 @@ class DiagnosticService:
         """Garante que overall_score seja numérico (Pydantic espera float); evita 500 se veio string do LLM."""
         if not data:
             return data
-        raw = data.get("overall_score")
+        if not isinstance(data, dict):
+            return None
+
+        sanitized = dict(data)
+        raw = sanitized.get("overall_score")
         if raw is not None and not isinstance(raw, (int, float)):
-            data = {**data, "overall_score": 5.0}
-        return data
+            sanitized["overall_score"] = 5.0
+
+        # Compatibilidade com versões de relatório em que area_analysis não inclui score.
+        areas = sanitized.get("area_analysis")
+        if isinstance(areas, list):
+            normalized_areas = []
+            for area in areas:
+                if not isinstance(area, dict):
+                    continue
+                area_item = dict(area)
+                score_raw = area_item.get("score")
+                if isinstance(score_raw, (int, float)):
+                    area_item["score"] = float(score_raw)
+                else:
+                    try:
+                        area_item["score"] = float(score_raw)  # type: ignore[arg-type]
+                    except (TypeError, ValueError):
+                        area_item["score"] = 0.0
+                normalized_areas.append(area_item)
+            sanitized["area_analysis"] = normalized_areas
+
+        return sanitized
 
     async def get_result(self, diagnostic_id: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado de um diagnóstico finalizado."""
@@ -138,27 +179,36 @@ class DiagnosticService:
             supabase.table("diagnostic_results")
             .select("detailed_analysis")
             .eq("diagnostic_id", diagnostic_id)
-            .single()
+            .limit(1)
             .execute()
         )
-        if not result.data:
+        if not result.data or len(result.data) == 0:
             return None
-        return self._sanitize_result_for_response(result.data.get("detailed_analysis"))
+        row = result.data[0]
+        return self._sanitize_result_for_response(row.get("detailed_analysis"))
 
     async def get_result_by_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Obtém resultado pelo token público."""
+        try:
+            diagnostic_id = self._get_diagnostic_id_by_token(token)
+        except ValueError:
+            return None
+        return await self.get_result(diagnostic_id)
+
+    async def get_owner_email_by_token(self, token: str) -> Optional[str]:
+        """Obtém email do titular por result_token."""
         from app.database import supabase
 
         diag_result = (
             supabase.table("diagnostics")
-            .select("id")
+            .select("email")
             .eq("result_token", token)
             .single()
             .execute()
         )
         if not diag_result.data:
             return None
-        return await self.get_result(str(diag_result.data["id"]))
+        return (diag_result.data.get("email") or "").strip().lower() or None
 
     async def get_result_pdf_by_token(self, token: str) -> bytes:
         """Gera PDF do resultado a partir do token público."""
@@ -166,6 +216,19 @@ class DiagnosticService:
         if not result:
             raise ValueError("Resultado não encontrado.")
         return build_diagnostic_pdf(result)
+
+    async def get_micro_diagnostic_pdf_by_token(self, token: str, micro_id: str) -> bytes:
+        """Gera PDF de um microdiagnóstico concluído a partir do token público."""
+        micro_state = await self.get_micro_diagnostic(token, micro_id)
+        if micro_state.get("status") != "completed":
+            raise ValueError("Microdiagnóstico ainda não foi concluído.")
+
+        result = micro_state.get("result")
+        if not isinstance(result, dict) or not result:
+            raise ValueError("Resultado do microdiagnóstico não encontrado.")
+
+        area = str(result.get("area") or "Área não informada")
+        return build_micro_diagnostic_pdf(area=area, result_data=result)
 
     async def generate_micro_report(self, token: str, area: str) -> Dict[str, Any]:
         """Gera micro-relatório por área com cache por diagnóstico/área."""
@@ -191,6 +254,29 @@ class DiagnosticService:
     async def finish_micro_diagnostic(self, token: str, micro_id: str) -> Dict[str, Any]:
         """Finaliza micro-diagnóstico e retorna resultado."""
         return await micro_diagnostic_service.finish_micro_diagnostic(token, micro_id)
+
+    async def list_completed_micro_diagnostics_by_token(self, token: str) -> list[Dict[str, Any]]:
+        """Lista microdiagnósticos concluídos de um diagnóstico (via token público)."""
+        from app.database import supabase
+
+        diagnostic_id = self._get_diagnostic_id_by_token(token)
+        result = (
+            supabase.table("micro_diagnostics")
+            .select("id, area, created_at")
+            .eq("diagnostic_id", diagnostic_id)
+            .eq("status", "completed")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return [
+            {
+                "micro_id": str(row.get("id")),
+                "area": row.get("area") or "Área não informada",
+                "created_at": str(row.get("created_at") or ""),
+            }
+            for row in (result.data or [])
+            if row.get("id")
+        ]
 
     async def check_existing_diagnostic(self, email: str) -> Dict[str, Any]:
         """Verifica se existe diagnóstico em andamento para o email."""
@@ -232,6 +318,25 @@ class DiagnosticService:
                 "started_at": d["created_at"],
             }
         return {"exists": False}
+
+    async def abandon_diagnostic(self, diagnostic_id: str) -> None:
+        """Marca o diagnóstico como abandonado (para permitir iniciar um novo com o mesmo email)."""
+        from app.database import supabase
+
+        result = (
+            supabase.table("diagnostics")
+            .select("id, status")
+            .eq("id", diagnostic_id)
+            .single()
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Diagnóstico não encontrado")
+        if result.data.get("status") != "in_progress":
+            raise ValueError("Diagnóstico não está em andamento")
+        supabase.table("diagnostics").update({"status": "abandoned"}).eq(
+            "id", diagnostic_id
+        ).execute()
 
     async def get_current_state(self, diagnostic_id: str) -> Dict[str, Any]:
         """Retorna o estado atual do diagnóstico para retomada."""
@@ -287,12 +392,13 @@ class DiagnosticService:
         # Respostas já salvas (question_id -> texto) para preencher ao clicar "Anterior" ao retomar
         answers_result = (
             supabase.table("answers")
-            .select("question_id, answer_value")
+            .select("question_id, answer_value, question_phase, word_count")
             .eq("diagnostic_id", diagnostic_id)
             .order("answered_at")
             .execute()
         )
         answers_prefill: Dict[str, str] = {}
+        valid_answers_in_current_phase = 0
         for row in (answers_result.data or []):
             qid = row.get("question_id")
             if qid is not None:
@@ -304,6 +410,8 @@ class DiagnosticService:
                         val = {}
                 text = (val.get("text") or "").strip()
                 answers_prefill[str(qid)] = text
+            if row.get("question_phase") == phase and int(row.get("word_count") or 0) >= 10:
+                valid_answers_in_current_phase += 1
 
         return {
             "diagnostic_id": diagnostic_id,
@@ -312,11 +420,15 @@ class DiagnosticService:
             "status": diagnostic["status"],
             "current_phase": phase,
             "current_question": current_q,
+            "current_phase_questions_count": int(
+                diagnostic.get("current_phase_questions_count") or len(questions) or 1
+            ),
             "total_answers": total_answers,
             "total_words": total_words,
             "areas_covered": areas_covered,
             "questions": questions,
             "answers_prefill": answers_prefill,
+            "valid_answers_in_current_phase": valid_answers_in_current_phase,
             "can_finish": eligibility["can_finish"],
             "progress": {
                 "overall": min(100, eligibility["overall_progress"]),

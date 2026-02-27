@@ -1,6 +1,6 @@
 # Deploy do backend NARA (Railway ou Render)
 
-Conforme `documentos/07_DEPLOY_QUALIDADE.md` e `DEPLOY.md`: o backend FastAPI sobe em **Railway** ou **Render**. Este guia traz o passo a passo para ambos.
+Conforme `documentos/07_DEPLOY_QUALIDADE.md` e [project-docs/DEPLOY.md](../../project-docs/DEPLOY.md): o backend FastAPI sobe em **Railway** ou **Render**. Este guia traz o passo a passo para ambos.
 
 ---
 

@@ -1,0 +1,44 @@
+# Root Docker build context protections
+
+# Secrets and environment files
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+
+# Git and IDE
+.git
+.gitignore
+.gitattributes
+.github
+.cursor
+.vscode
+.idea
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+npm-debug.log*
+.pnpm-debug.log*
+
+# OS / logs
+.DS_Store
+*.swp
+*.swo
+*.log
+
+# Large/private project content
+docs/
+documentos/
+docs-rag/
+supabase/.temp/

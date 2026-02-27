@@ -43,8 +43,6 @@ class Settings(BaseSettings):
     # RAG
     RAG_TOP_K: int = 10
     RAG_SIMILARITY_THRESHOLD: float = 0.5
-    RAG_CHUNK_VERSION: int = 2      # versão ativa no banco; altere aqui ao migrar chunks
-    RAG_CHUNK_STRATEGY: str = "semantic"  # estratégia padrão usada pelo seed ativo
 
     # Diagnóstico
     MIN_QUESTIONS_TO_FINISH: int = 40

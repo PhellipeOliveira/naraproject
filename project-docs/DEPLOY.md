@@ -2,6 +2,8 @@
 
 ## Backend (Railway / Render)
 
+Guia detalhado: **nara-backend/docs/BACKEND_DEPLOY.md**.
+
 1. **Container:** usar o `Dockerfile` em `nara-backend/`.
 2. **Variáveis de ambiente:** definir no painel (ou `.env` em produção):
    - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
@@ -27,8 +29,9 @@ Resumo:
 ## Supabase
 
 1. Aplicar migrações: `supabase db push` (ou executar os SQL em `supabase/migrations/` na ordem).
-2. Popular `knowledge_chunks`: `cd nara-backend && python -m scripts.seed_knowledge_chunks` (com `.env` configurado).
-3. Índice vetorial: migration `20260213000005` cria o ivfflat quando houver dados.
+2. Scripts SQL manuais: usar arquivos em `supabase/scripts/` pelo SQL Editor quando necessário.
+3. Popular `knowledge_chunks`: `cd nara-backend && python -m scripts.seed_knowledge_chunks` (com `.env` configurado).
+4. Índice vetorial: migration `20260213000005` cria o ivfflat quando houver dados.
 
 ## LGPD
 

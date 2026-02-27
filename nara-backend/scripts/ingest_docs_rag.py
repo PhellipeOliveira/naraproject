@@ -22,21 +22,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
-from app.database import supabase
-from app.rag.embeddings import generate_embeddings_batch
 from app.rag.ingest import (
     ChunkStrategy,
     build_chunks_from_docs,
-    chunks_to_knowledge_rows,
-    enrich_chunks_metadata_with_llm,
+    ingest_single_file,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
-
-# Tamanho do batch para OpenAI (evitar limite de tokens)
-EMBEDDING_BATCH_SIZE = 50
-
 
 def get_default_paths() -> tuple[Path, Path | None]:
     """Raiz do repositório = pai do nara-backend. docs-rag e documentos ficam na raiz."""
@@ -121,52 +114,50 @@ async def main() -> None:
         logger.info("Incluindo guia: %s", [str(p) for p in extra_files])
     strategy: ChunkStrategy = args.strategy  # type: ignore[assignment]
     logger.info("Estratégia: %s", strategy)
-    logger.info("Construindo chunks (aguarde, pode levar 1–2 min)...")
-
-    chunks = build_chunks_from_docs(
-        docs_dir,
-        extra_files=extra_files if extra_files else None,
-        strategy=strategy,
-    )
-    logger.info("Total de chunks gerados: %d", len(chunks))
-    if not args.skip_metadata_enrichment and not args.dry_run:
-        logger.info("Enriquecendo metadados dos chunks via LLM...")
-        chunks = await enrich_chunks_metadata_with_llm(chunks)
-
-    if not chunks:
-        logger.warning("Nenhum chunk gerado. Verifique se há arquivos .md em %s", docs_dir)
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    docs_files = sorted([p for p in docs_dir.rglob("*.md") if p.is_file()])
+    all_files = docs_files + extra_files
+    if not all_files:
+        logger.warning("Nenhum arquivo .md encontrado para ingestão.")
         sys.exit(0)
 
     if args.dry_run:
-        logger.info("Dry-run: não gerando embeddings nem inserindo.")
+        logger.info("Dry-run: montando chunks sem gerar embeddings nem inserir.")
+        chunks = build_chunks_from_docs(
+            docs_dir,
+            extra_files=extra_files if extra_files else None,
+            strategy=strategy,
+        )
+        logger.info("Total de chunks gerados: %d", len(chunks))
         for i, c in enumerate(chunks[:5]):
-            logger.info("  [%d] chapter=%s section=%s len=%d", i + 1, c.get("chapter"), c.get("section"), len(c.get("content", "")))
+            logger.info(
+                "  [%d] source=%s chapter=%s section=%s len=%d",
+                i + 1,
+                c.get("source"),
+                c.get("chapter"),
+                c.get("section"),
+                len(c.get("content", "")),
+            )
         if len(chunks) > 5:
             logger.info("  ... e mais %d chunks", len(chunks) - 5)
         return
 
-    # Gerar embeddings em batches
-    all_embeddings: list[list[float]] = []
-    texts = [c["content"] for c in chunks]
-    for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
-        batch = texts[start : start + EMBEDDING_BATCH_SIZE]
-        logger.info("Embeddings batch %d-%d de %d...", start + 1, min(start + len(batch), len(texts)), len(texts))
-        emb = await generate_embeddings_batch(batch)
-        all_embeddings.extend(emb)
-
-    rows = chunks_to_knowledge_rows(chunks, all_embeddings)
-
-    # Inserir em lotes (Supabase pode ter limite por request)
-    insert_batch_size = 30
     total_inserted = 0
-    for start in range(0, len(rows), insert_batch_size):
-        batch_rows = rows[start : start + insert_batch_size]
-        result = supabase.table("knowledge_chunks").insert(batch_rows).execute()
-        n = len(result.data) if result.data else 0
-        total_inserted += n
-        logger.info("Inseridos %d registros (total %d/%d)", n, total_inserted, len(rows))
+    total_files = len(all_files)
+    enrich_metadata = not args.skip_metadata_enrichment
+    for idx, file_path in enumerate(all_files, start=1):
+        source = str(file_path.resolve().relative_to(repo_root.resolve()))
+        logger.info("[%d/%d] Reindexando %s", idx, total_files, source)
+        inserted = await ingest_single_file(
+            file_path=file_path,
+            repo_root=repo_root,
+            strategy=strategy,
+            enrich_metadata=enrich_metadata,
+        )
+        total_inserted += inserted
+        logger.info("[%d/%d] Upsert concluído: %d chunks", idx, total_files, inserted)
 
-    logger.info("Pronto. %d chunks inseridos em knowledge_chunks.", total_inserted)
+    logger.info("Pronto. %d chunks inseridos/atualizados em knowledge_chunks.", total_inserted)
     logger.info("O diagnóstico pode usar esses documentos via RAG (match_knowledge_chunks).")
 
 

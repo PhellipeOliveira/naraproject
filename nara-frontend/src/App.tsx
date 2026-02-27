@@ -11,6 +11,9 @@ import Diagnostic from "./pages/Diagnostic";
 import Result from "./pages/Result";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
+import UserLogin from "./pages/UserLogin";
+import UserDashboard from "./pages/UserDashboard";
+import MicroDiagnostic from "./pages/MicroDiagnostic";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,6 +32,10 @@ function App() {
             <Route path="/diagnostico/:id" element={<Diagnostic />} />
             <Route path="/diagnostico/:id/retomar" element={<Diagnostic />} />
             <Route path="/resultado/:token" element={<Result />} />
+            <Route path="/entrar" element={<UserLogin />} />
+            <Route path="/meu-diagnostico/:token/micro/:microId" element={<MicroDiagnostic />} />
+            <Route path="/meu-diagnostico/:token" element={<UserDashboard />} />
+            <Route path="/meu-diagnostico" element={<UserDashboard />} />
             <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
             <Route path="/termos-de-uso" element={<TermsOfUse />} />
             <Route path="/admin/login" element={<AdminLogin />} />

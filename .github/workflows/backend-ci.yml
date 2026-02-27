@@ -49,3 +49,6 @@ jobs:
       - name: Run unit tests
         run: |
           pytest tests/unit -q
+
+      - name: Lint RAG queries
+        run: python -m scripts.lint_queries --json

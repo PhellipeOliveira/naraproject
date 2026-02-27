@@ -5,7 +5,6 @@ Uso (na raiz do nara-backend):
   python -m scripts.seed_knowledge_chunks
 
 Requer: SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_API_KEY no .env
-A versão gravada nos chunks é definida por RAG_CHUNK_VERSION em config.py.
 """
 import asyncio
 import logging
@@ -15,12 +14,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
-from app.database import supabase
 from app.rag.embeddings import generate_embeddings_batch
+from app.rag.ingest import upsert_chunks_for_source
 from scripts.seed_knowledge_chunks_data_v2 import CHUNKS_V2
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
+SEED_SOURCE = "seed/knowledge_chunks_v2"
 
 
 async def seed_chunks(chunks: list[dict]) -> None:
@@ -33,6 +33,7 @@ async def seed_chunks(chunks: list[dict]) -> None:
     for i, chunk in enumerate(chunks):
         sintomas = chunk.get("sintomas_comportamentais") or chunk.get("sintomas", [])
         row = {
+            "source": SEED_SOURCE,
             "chapter": chunk["chapter"],
             "section": chunk.get("section"),
             "content": chunk["content"],
@@ -48,9 +49,8 @@ async def seed_chunks(chunks: list[dict]) -> None:
                 "tipo_conteudo": chunk.get("tipo_conteudo"),
                 "dominio": chunk.get("dominio", []),
                 "nivel_maturidade": chunk.get("nivel_maturidade"),
-                "chunk_strategy": settings.RAG_CHUNK_STRATEGY,
-                "source": "seed_script",
-                "version": str(settings.RAG_CHUNK_VERSION),
+                "chunk_strategy": "semantic",
+                "source": SEED_SOURCE,
             },
             "motor_motivacional": chunk.get("motor_motivacional"),
             "estagio_jornada": chunk.get("estagio_jornada"),
@@ -63,13 +63,12 @@ async def seed_chunks(chunks: list[dict]) -> None:
             "tipo_conteudo": chunk.get("tipo_conteudo"),
             "dominio": chunk.get("dominio"),
             "is_active": True,
-            "version": settings.RAG_CHUNK_VERSION,
         }
         rows.append(row)
 
-    logger.info("Inserindo %d chunks no Supabase...", len(rows))
-    result = supabase.table("knowledge_chunks").insert(rows).execute()
-    logger.info("Inseridos %d registros.", len(result.data))
+    logger.info("Aplicando upsert de %d chunks no Supabase...", len(rows))
+    inserted = upsert_chunks_for_source(SEED_SOURCE, rows)
+    logger.info("Inseridos %d registros.", inserted)
 
 
 async def main() -> None:
@@ -80,7 +79,7 @@ async def main() -> None:
         logger.error("Defina OPENAI_API_KEY no .env para gerar embeddings")
         sys.exit(1)
 
-    logger.info("Iniciando seed — versão %d (Base Metodológica NARA)", settings.RAG_CHUNK_VERSION)
+    logger.info("Iniciando seed da Base Metodológica NARA")
     await seed_chunks(CHUNKS_V2)
     logger.info("Pronto. Execute a migração de índice vetorial se ainda não tiver executado.")
 

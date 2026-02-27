@@ -180,6 +180,8 @@ class EmailService:
         summary = diagnostic_result.get("summary") or ""
         overall_score = diagnostic_result.get("overall_score")
         view_url = diagnostic_result.get("view_url") or ""
+        dashboard_url = diagnostic_result.get("dashboard_url") or ""
+        start_url = diagnostic_result.get("start_url") or ""
         diagnostic_id = diagnostic_result.get("diagnostic_id")
         summary_snippet = (summary[:300] + "...") if len(summary) > 300 else summary
 
@@ -188,6 +190,8 @@ class EmailService:
             summary=summary_snippet,
             overall_score=overall_score,
             view_url=view_url,
+            dashboard_url=dashboard_url,
+            start_url=start_url,
         )
         return await self.send_email(
             to=user_email,
@@ -203,38 +207,196 @@ class EmailService:
         summary: str,
         overall_score: Optional[float] = None,
         view_url: str = "",
+        dashboard_url: str = "",
+        start_url: str = "",
     ) -> str:
         """Template HTML responsivo para email de resultado do diagnóstico."""
+        primary = "#7C3AED"
+        primary_light = "#A78BFA"
+        primary_dark = "#6D28D9"
+        accent_cyan = "#06B6D4"
+        accent_emerald = "#10B981"
+        neutral_50 = "#F9FAFB"
+        neutral_200 = "#E5E7EB"
+        neutral_500 = "#6B7280"
+        neutral_900 = "#1F2937"
+        gradient = f"linear-gradient(135deg, {primary} 0%, {accent_cyan} 100%)"
+
         score_block = ""
         if overall_score is not None:
             score_block = f"""
-                <div style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 24px auto; text-align: center;">
-                    <span style="font-size: 42px; font-weight: bold;">{overall_score:.1f}</span>
-                    <span style="font-size: 12px; opacity: 0.9;">Score Geral</span>
-                </div>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 20px 0 0 0;">
+                    <tr>
+                        <td align="center">
+                            <div style="width: 120px; height: 120px; border-radius: 999px; background: {primary}; background: {gradient}; color: #ffffff; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; box-shadow: 0 8px 18px rgba(124, 58, 237, 0.25);">
+                                <span style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 42px; line-height: 1; font-weight: 700;">{overall_score:.1f}</span>
+                                <span style="font-size: 12px; opacity: 0.95; margin-top: 6px;">Score Geral</span>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
             """
-        cta_block = ""
+
+        dashboard_button = ""
+        if dashboard_url:
+            dashboard_button = f"""
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0;">
+                    <tr>
+                        <td align="center">
+                            <a href="{dashboard_url}" style="display: block; background: {primary}; background: {gradient}; color: #ffffff; text-decoration: none; padding: 15px 24px; border-radius: 10px; text-align: center; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px; box-shadow: 0 8px 18px rgba(124, 58, 237, 0.20);">
+                                Acessar o dashboard →
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            """
+
+        result_button = ""
         if view_url:
-            cta_block = f'<a href="{view_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 24px 0;">Ver Diagnóstico Completo →</a>'
+            result_button = f"""
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top: 12px;">
+                    <tr>
+                        <td align="center">
+                            <a href="{view_url}" style="display: block; background: transparent; color: {primary}; text-decoration: none; padding: 13px 24px; border-radius: 10px; text-align: center; border: 2px solid {primary}; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px;">
+                                Ver resultado
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            """
+
+        invite_block = ""
+        if start_url:
+            invite_block = f"""
+                <tr>
+                    <td style="padding: 24px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top: 1px solid {neutral_200};">
+                            <tr>
+                                <td style="padding-top: 24px; text-align: center;">
+                                    <p style="margin: 0 0 8px 0; color: {neutral_500}; font-size: 14px; line-height: 1.6;">👥 Conhece alguém que também pode se beneficiar?</p>
+                                    <a href="{start_url}" style="color: {primary}; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 2px;">
+                                        Convidar alguém a fazer o diagnóstico
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            """
+
         return f"""
         <!DOCTYPE html>
-        <html>
+        <html lang="pt-BR">
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+            <title>Diagnóstico NARA concluído</title>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f9fafb;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h1 style="color: #6366f1; font-size: 24px; margin: 0 0 24px 0;">Olá, {user_name}! 👋</h1>
-                <p style="color: #374151; line-height: 1.6;">Seu Diagnóstico de Transformação Narrativa está pronto!</p>
-                {score_block}
-                <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <strong>Resumo:</strong>
-                    <p style="margin: 8px 0 0 0; color: #4b5563;">{summary}</p>
-                </div>
-                {cta_block}
-                <p style="color: #6b7280; font-size: 14px; text-align: center; margin-top: 32px;">© {settings.APP_NAME}. Todos os direitos reservados.</p>
-            </div>
+        <body style="margin: 0; padding: 20px; background-color: {neutral_50}; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid {neutral_200}; box-shadow: 0 2px 8px rgba(31, 41, 55, 0.06);">
+                <tr>
+                    <td style="padding: 32px 32px 12px 32px;">
+                        <h1 style="margin: 0; color: {primary}; font-size: 28px; line-height: 1.25; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                            Olá, {user_name}! 👋
+                        </h1>
+                        <p style="margin: 10px 0 0 0; color: {neutral_500}; font-size: 15px; line-height: 1.6;">
+                            Seu Diagnóstico de Transformação Narrativa está pronto.
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 12px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #F3F0FF; border: 1px solid #DDD6FE; border-radius: 12px; box-shadow: 0 8px 18px rgba(124, 58, 237, 0.08);">
+                            <tr>
+                                <td align="center" style="padding: 32px;">
+                                    <p style="margin: 0; font-size: 34px; line-height: 1;">🎉</p>
+                                    <h2 style="margin: 12px 0 8px 0; color: {primary_dark}; font-size: 24px; line-height: 1.3; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                        Parabéns! Seu diagnóstico está completo!
+                                    </h2>
+                                    <p style="margin: 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        Agora você tem insights poderosos sobre sua jornada de transformação.
+                                    </p>
+                                    <span style="display: inline-block; margin-top: 14px; background: {accent_emerald}; color: #ffffff; font-size: 12px; line-height: 1; font-weight: 700; padding: 8px 12px; border-radius: 999px;">
+                                        ✓ Diagnóstico Completo
+                                    </span>
+                                    {score_block}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 18px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #F3F0FF; border: 1px solid #DDD6FE; border-radius: 12px;">
+                            <tr>
+                                <td style="padding: 24px;">
+                                    <h3 style="margin: 0 0 8px 0; color: {primary_dark}; font-size: 20px; line-height: 1.3; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                        Pronto para descobrir seus resultados?
+                                    </h3>
+                                    <p style="margin: 0 0 18px 0; color: {neutral_500}; font-size: 14px; line-height: 1.6;">
+                                        Explore insights detalhados e recomendações personalizadas.
+                                    </p>
+                                    {dashboard_button}
+                                    {result_button}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 18px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: {neutral_50}; border: 1px solid {neutral_200}; border-radius: 12px;">
+                            <tr>
+                                <td style="padding: 20px;">
+                                    <h3 style="margin: 0 0 8px 0; color: {neutral_900}; font-size: 18px; line-height: 1.3; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                        📊 Resumo
+                                    </h3>
+                                    <p style="margin: 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        {summary}
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 18px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #ffffff; border: 1px solid {neutral_200}; border-radius: 12px;">
+                            <tr>
+                                <td style="padding: 20px;">
+                                    <h3 style="margin: 0 0 12px 0; color: {neutral_900}; font-size: 18px; line-height: 1.3; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                        Próximos passos
+                                    </h3>
+                                    <p style="margin: 0 0 8px 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        <span style="color: {primary}; font-weight: 700;">📊</span> Analise seus resultados detalhados
+                                    </p>
+                                    <p style="margin: 0 0 8px 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        <span style="color: {primary}; font-weight: 700;">💡</span> Receba recomendações personalizadas
+                                    </p>
+                                    <p style="margin: 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        <span style="color: {primary}; font-weight: 700;">📈</span> Acompanhe sua evolução
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                {invite_block}
+
+                <tr>
+                    <td style="padding: 28px 32px 32px 32px; text-align: center;">
+                        <p style="margin: 0; color: {neutral_500}; font-size: 13px; line-height: 1.6;">
+                            © {settings.APP_NAME}. Todos os direitos reservados.
+                        </p>
+                    </td>
+                </tr>
+            </table>
         </body>
         </html>
         """
@@ -281,6 +443,8 @@ class EmailService:
             "overall_score": overall_score,
             "summary": summary,
             "view_url": f"{settings.FRONTEND_URL}/resultado/{result_token}",
+            "dashboard_url": f"{settings.FRONTEND_URL}/meu-diagnostico/{result_token}",
+            "start_url": f"{settings.FRONTEND_URL}/diagnostico/iniciar?compartilhar=1",
         }
         return await self.send_diagnostic_email(
             user_email=to,
@@ -309,6 +473,7 @@ class EmailService:
             areas_covered=areas_covered,
             can_finish=can_finish,
             resume_url=f"{settings.FRONTEND_URL}/diagnostico/{diagnostic_id}/retomar",
+            start_url=f"{settings.FRONTEND_URL}/diagnostico/iniciar?compartilhar=1",
         )
         return await self.send_email(
             to=to,
@@ -355,34 +520,144 @@ class EmailService:
         total_answers: Optional[int] = None,
         areas_covered: Optional[int] = None,
         can_finish: bool = False,
+        start_url: str = "",
     ) -> str:
+        primary = "#7C3AED"
+        primary_dark = "#6D28D9"
+        accent_cyan = "#06B6D4"
+        accent_amber = "#F59E0B"
+        accent_emerald = "#10B981"
+        neutral_50 = "#F9FAFB"
+        neutral_200 = "#E5E7EB"
+        neutral_500 = "#6B7280"
+        neutral_900 = "#1F2937"
+        gradient = f"linear-gradient(135deg, {primary} 0%, {accent_cyan} 100%)"
+
         phase_name = PHASE_NAMES.get(phase or 1, "Diagnóstico Base")
         answered = max(0, int(total_answers or 0))
         covered = max(0, int(areas_covered or 0))
         remaining_questions = max(0, 40 - answered)
+        progress_value = max(0, min(100, int(progress or 0)))
+        progress_remaining = 100 - progress_value
         finish_line = (
             "✓ Você já atingiu os critérios mínimos para finalizar"
             if can_finish
             else f"→ Faltam ~{remaining_questions} perguntas para poder finalizar"
         )
 
+        finish_icon = "✅" if can_finish else "⏳"
+        finish_color = accent_emerald if can_finish else accent_amber
+        invite_block = ""
+        if start_url:
+            invite_block = f"""
+                <tr>
+                    <td style="padding: 24px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top: 1px solid {neutral_200};">
+                            <tr>
+                                <td style="padding-top: 24px; text-align: center;">
+                                    <p style="margin: 0 0 8px 0; color: {neutral_500}; font-size: 14px; line-height: 1.6;">
+                                        👥 Conhece alguém que também pode se beneficiar?
+                                    </p>
+                                    <a href="{start_url}" style="color: {primary}; font-size: 15px; font-weight: 700; text-decoration: underline; text-underline-offset: 2px;">
+                                        Convidar alguém a fazer o diagnóstico
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            """
+
         return f"""
         <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f9fafb;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <h1 style="color: #6366f1; font-size: 24px;">Olá, {user_name}! 👋</h1>
-                <p style="color: #374151; line-height: 1.6;">Continue seu Diagnóstico. Nara vai surpreender você!</p>
-                <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 24px 0;">
-                    <p style="margin: 0 0 8px 0;"><strong>Progresso:</strong> {progress}% (Fase {phase or 1} — {phase_name})</p>
-                    <p style="margin: 0 0 6px 0;">✓ {answered} perguntas respondidas de 40 necessárias</p>
-                    <p style="margin: 0 0 6px 0;">✓ {covered} de 12 áreas cobertas</p>
-                    <p style="margin: 0;">{finish_line}</p>
-                </div>
-                <a href="{resume_url}" style="display: block; background: #6366f1; color: white; text-decoration: none; padding: 14px 28px; border-radius: 8px; text-align: center; font-weight: 600; margin: 24px 0;">Continuar Diagnóstico →</a>
-                <p style="color: #6b7280; font-size: 14px; text-align: center; margin-top: 32px;">© NARA.</p>
-            </div>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+            <title>Continue seu Diagnóstico NARA</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: {neutral_50}; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid {neutral_200}; box-shadow: 0 2px 8px rgba(31, 41, 55, 0.06);">
+                <tr>
+                    <td style="padding: 32px 32px 12px 32px;">
+                        <h1 style="margin: 0; color: {primary}; font-size: 28px; line-height: 1.25; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                            Olá, {user_name}! 👋
+                        </h1>
+                        <p style="margin: 10px 0 0 0; color: {neutral_500}; font-size: 15px; line-height: 1.6;">
+                            Continue seu Diagnóstico. Nara vai surpreender você!
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 12px 32px 0 32px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: {neutral_50}; border: 1px solid {primary}; border-radius: 12px;">
+                            <tr>
+                                <td style="padding: 24px;">
+                                    <p style="margin: 0 0 8px 0; color: {neutral_900}; font-size: 16px; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                        🎯 Seu progresso
+                                    </p>
+                                    <p style="margin: 0; color: {primary}; font-size: 34px; line-height: 1.1; font-weight: 700; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                        {progress_value}%
+                                    </p>
+
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 12px 0 14px 0;">
+                                        <tr>
+                                            <td width="{progress_value}%" style="height: 10px; border-radius: 999px 0 0 999px; background: {primary}; background: {gradient};"></td>
+                                            <td width="{progress_remaining}%" style="height: 10px; border-radius: 0 999px 999px 0; background: {neutral_200};"></td>
+                                        </tr>
+                                    </table>
+
+                                    <span style="display: inline-block; margin-bottom: 12px; background: #F3F0FF; color: {primary_dark}; font-size: 12px; line-height: 1; font-weight: 700; padding: 8px 12px; border-radius: 999px;">
+                                        Fase {phase or 1} — {phase_name}
+                                    </span>
+
+                                    <p style="margin: 0 0 8px 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        <span style="color: {accent_emerald}; font-weight: 700;">✅</span>
+                                        <strong>{answered}</strong> perguntas respondidas de <strong>40</strong> necessárias
+                                    </p>
+                                    <p style="margin: 0 0 8px 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        <span style="color: {accent_cyan}; font-weight: 700;">📋</span>
+                                        <strong>{covered}</strong> de <strong>12</strong> áreas cobertas
+                                    </p>
+                                    <p style="margin: 0; color: {neutral_500}; font-size: 14px; line-height: 1.7;">
+                                        <span style="color: {finish_color}; font-weight: 700;">{finish_icon}</span>
+                                        {finish_line}
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 18px 32px 0 32px;">
+                        <p style="margin: 0 0 12px 0; color: {neutral_500}; font-size: 14px; line-height: 1.6; text-align: center;">
+                            💪 Você está quase lá! Continue de onde parou.
+                        </p>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <tr>
+                                <td align="center">
+                                    <a href="{resume_url}" style="display: block; background: {primary}; background: {gradient}; color: #ffffff; text-decoration: none; padding: 15px 24px; border-radius: 10px; text-align: center; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px; box-shadow: 0 8px 18px rgba(124, 58, 237, 0.20);">
+                                        Continuar Diagnóstico →
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                {invite_block}
+
+                <tr>
+                    <td style="padding: 28px 32px 32px 32px; text-align: center;">
+                        <p style="margin: 0; color: {neutral_500}; font-size: 13px; line-height: 1.6;">
+                            © {settings.APP_NAME}. Todos os direitos reservados.
+                        </p>
+                    </td>
+                </tr>
+            </table>
         </body>
         </html>
         """
